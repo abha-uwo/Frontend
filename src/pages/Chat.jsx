@@ -495,7 +495,7 @@ ${caps.canUploadDocs ? `DOCUMENT ANALYSIS CAPABILITIES:
 ${activeAgent.instructions ? `SPECIFIC AGENT INSTRUCTIONS:
 ${activeAgent.instructions}` : ''}
 `;
-        const aiResponseText = await generateChatResponse(
+        const aiResponseData = await generateChatResponse(
           messages,
           userMsg.content,
           SYSTEM_INSTRUCTION,
@@ -503,6 +503,19 @@ ${activeAgent.instructions}` : ''}
           currentLang,
           abortControllerRef.current.signal
         );
+
+        // Handle response - could be string (old format) or object (new format with conversion)
+        let aiResponseText = '';
+        let conversionData = null;
+
+        if (typeof aiResponseData === 'string') {
+          aiResponseText = aiResponseData;
+        } else if (aiResponseData && typeof aiResponseData === 'object') {
+          aiResponseText = aiResponseData.reply || "No response generated.";
+          conversionData = aiResponseData.conversion || null;
+        } else {
+          aiResponseText = "No response generated.";
+        }
 
         // Check for multiple file analysis headers to split into separate cards
         const delimiter = '---SPLIT_RESPONSE---';
@@ -553,17 +566,30 @@ ${activeAgent.instructions}` : ''}
             // Wait before next word
             await new Promise(resolve => setTimeout(resolve, delay));
           }
-        }
 
-        if (!isSendingRef.current) {
-          setTypingMessageId(null);
-          return; // Exit function if stopped
-        }
+          if (!isSendingRef.current) {
+            setTypingMessageId(null);
+            return; // Exit function if stopped
+          }
 
-        setTypingMessageId(null); // Clear typing status
-        // After typing is complete, save the full message to history
-        await chatStorageService.saveMessage(activeSessionId, { ...modelMsg, content: partContent });
-        scrollToBottom();
+          setTypingMessageId(null); // Clear typing status
+
+          // Add conversion data if available
+          const finalModelMsg = { ...modelMsg, content: partContent };
+          if (conversionData && i === 0) {
+            // Attach conversion data to first message
+            finalModelMsg.conversion = conversionData;
+          }
+
+          // After typing is complete, save the full message to history
+          await chatStorageService.saveMessage(activeSessionId, finalModelMsg);
+
+          // CRITICAL: Update the state with the final message including conversion data
+          setMessages((prev) =>
+            prev.map(m => m.id === msgId ? finalModelMsg : m)
+          );
+          scrollToBottom();
+        }
       } catch (innerError) {
         console.error("Storage/API Error:", innerError);
         // Even if saving failed, we still have the local state
@@ -915,6 +941,45 @@ ${activeAgent.instructions}` : ''}
   const [pdfLoadingId, setPdfLoadingId] = useState(null);
 
   const handlePdfAction = async (action, msg) => {
+    // If this message has a converted file, use it directly instead of rendering the chat bubble
+    if (msg.conversion && msg.conversion.file && msg.conversion.mimeType === 'application/pdf') {
+      try {
+        const byteCharacters = atob(msg.conversion.file);
+        const byteNumbers = new Array(byteCharacters.length);
+        for (let i = 0; i < byteCharacters.length; i++) {
+          byteNumbers[i] = byteCharacters.charCodeAt(i);
+        }
+        const byteArray = new Uint8Array(byteNumbers);
+        const blob = new Blob([byteArray], { type: 'application/pdf' });
+        const url = URL.createObjectURL(blob);
+
+        if (action === 'download') {
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = msg.conversion.fileName || 'converted.pdf';
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          toast.success("Converted PDF Downloaded");
+        } else if (action === 'open') {
+          window.open(url, '_blank');
+        } else if (action === 'share') {
+          const file = new File([blob], msg.conversion.fileName || 'converted.pdf', { type: 'application/pdf' });
+          if (navigator.canShare && navigator.canShare({ files: [file] })) {
+            await navigator.share({ files: [file], title: 'Converted Document' });
+          } else {
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = msg.conversion.fileName || 'converted.pdf';
+            a.click();
+          }
+        }
+        return; // Exit after handling conversion file
+      } catch (err) {
+        console.error("Error handling conversion file PDF action:", err);
+      }
+    }
+
     setPdfLoadingId(msg.id);
     try {
       const element = document.getElementById(`msg-text-${msg.id}`);
@@ -1758,7 +1823,7 @@ For "Remix" requests with an attachment, analyze the attached image, then create
                   >
                     <div
                       className={`group/bubble relative px-4 py-2 rounded-2xl text-sm leading-normal whitespace-pre-wrap break-words shadow-sm w-fit max-w-full transition-all duration-300 min-h-[40px] ${msg.role === 'user'
-                        ? 'bg-primary text-white rounded-tr-none flex items-center px-5 py-3 rounded-3xl'
+                        ? 'bg-primary text-white rounded-tr-none block px-5 py-3 rounded-3xl'
                         : `bg-surface border border-border text-maintext rounded-tl-none block ${msg.id === typingMessageId ? 'ai-typing-glow ai-typing-shimmer outline outline-offset-1 outline-primary/20' : ''}`
                         }`}
                     >
@@ -1978,6 +2043,56 @@ For "Remix" requests with an attachment, analyze the attached image, then create
                             </ReactMarkdown>
                           </div>
                         )
+                      )}
+
+                      {/* File Conversion Download Button */}
+                      {msg.conversion && msg.conversion.file && (
+                        <div className="mt-4 pt-3 border-t border-border/40">
+                          <button
+                            onClick={() => {
+                              // Create download link
+                              const byteCharacters = atob(msg.conversion.file);
+                              const byteNumbers = new Array(byteCharacters.length);
+                              for (let i = 0; i < byteCharacters.length; i++) {
+                                byteNumbers[i] = byteCharacters.charCodeAt(i);
+                              }
+                              const byteArray = new Uint8Array(byteNumbers);
+                              const blob = new Blob([byteArray], { type: msg.conversion.mimeType });
+                              const url = URL.createObjectURL(blob);
+                              const a = document.createElement('a');
+                              a.href = url;
+                              a.download = msg.conversion.fileName;
+                              document.body.appendChild(a);
+                              a.click();
+                              document.body.removeChild(a);
+                              URL.revokeObjectURL(url);
+                            }}
+                            className="flex items-center gap-3 px-4 py-3 bg-primary/10 hover:bg-primary/20 border border-primary/30 rounded-xl transition-all group w-full"
+                          >
+                            <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${msg.conversion.fileName.toLowerCase().endsWith('.pdf')
+                              ? 'bg-red-50 text-red-600'
+                              : 'bg-blue-50 text-blue-600'
+                              }`}>
+                              {msg.conversion.fileName.toLowerCase().endsWith('.pdf')
+                                ? <FileText className="w-5 h-5" />
+                                : <File className="w-5 h-5" />
+                              }
+                            </div>
+                            <div className="flex-1 text-left">
+                              <p className="text-[15px] font-bold text-primary transition-colors mb-0.5">
+                                {msg.conversion.fileName}
+                              </p>
+                              <div className="flex items-center gap-2">
+                                <p className={`text-xs font-semibold flex items-center gap-1 px-2 py-0.5 rounded-md border ${msg.conversion.fileName.toLowerCase().endsWith('.pdf')
+                                  ? 'text-primary bg-primary/10 border-primary/20'
+                                  : 'text-primary bg-primary/10 border-primary/20'
+                                  }`}>
+                                  Click here to download {msg.conversion.fileName.split('.').pop().toLowerCase()}
+                                </p>
+                              </div>
+                            </div>
+                          </button>
+                        </div>
                       )}
 
                       {/* AI Feedback Actions */}
