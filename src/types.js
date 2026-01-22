@@ -40,35 +40,26 @@ export const MessageRole = {
  * @property {string} avatar
  */
 
-// AppRoute Enum → Convert to constant object
+// AppRoute Enum
 export const AppRoute = {
   LANDING: "/",
   LOGIN: "/login",
   SIGNUP: "/signup",
   E_Verification: "/verification",
   DASHBOARD: "/dashboard",
-  MARKETPLACE: "/dashboard/marketplace",
-  MY_AGENTS: "/dashboard/agents",
-  LIVE_DEMOS: "/dashboard/live-demos",
   SETTINGS: "/dashboard/settings",
-  INVOICES: "/dashboard/invoices",
-  NOTIFICATIONS: "/dashboard/notifications",
-  SECURITY: "/dashboard/security",
-  ADMIN: "/dashboard/admin",
   PROFILE: "/dashboard/profile",
-  VENDOR: "/vendor",
-  VENDOR_REVENUE: "/vendor/revenue/overview",
-  VENDOR_TRANSACTIONS: "/vendor/revenue/transactions",
-  agentSoon: "/agentsoon",
   FORGOT_PASSWORD: "/forgot-password",
   RESET_PASSWORD: "/reset-password/:token",
+  PRIVACY_POLICY: "/privacy-policy",
+  TERMS_OF_SERVICE: "/terms-of-service",
+  COOKIE_POLICY: "/cookie-policy",
 };
 
+// API Base URL
+const API = 'http://localhost:8080/api';
 
-// export const API = "https://a-series-backend-561947379084.asia-south1.run.app/api";
-export const API_BASE_URL = 'http://localhost:8080/api';
-
-export const apis = {
+const apis = {
   resetPassword: `${API}/auth/reset-password`,
   user: `${API}/user`,
   getPayments: `${API}/user/payments`,
@@ -78,11 +69,16 @@ export const apis = {
   getUserAgents: `${API}/agents/get_my_agents`,
   getMyAgents: `${API}/agents/me`,
   chatAgent: `${API}/chat`,
-  aibiz: `${API}/aibiz`,
   support: `${API}/support`,
   resetPasswordEmail: `${API}/auth/reset-password-email`,
   feedback: `${API}/feedback`,
   synthesizeVoice: `${API}/voice/synthesize`,
   createOrder: `${API}/payments/create-order`,
   verifyPayment: `${API}/payments/verify`,
+  logIn: `${API}/auth/login`,
+  signUp: `${API}/auth/signup`,
+  forgotPassword: `${API}/auth/forgot-password`,
+  emailVerificationApi: `${API}/auth/verify-email`,
 };
+
+export { API, apis };

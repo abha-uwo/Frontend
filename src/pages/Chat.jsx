@@ -1,13 +1,12 @@
 import React, { useState, useRef, useEffect, Fragment } from 'react';
 import { useParams, useNavigate } from 'react-router';
 import { AnimatePresence, motion } from 'motion/react';
-import { Send, Bot, User, Sparkles, Plus, Monitor, ChevronDown, History, Paperclip, X, FileText, Image as ImageIcon, Cloud, HardDrive, Edit2, Download, Mic, Wand2, Eye, FileSpreadsheet, Presentation, File, MoreVertical, Trash2, Check, Camera, Video, Copy, ThumbsUp, ThumbsDown, Share, Loader2, RotateCcw, HelpCircle, ChevronUp, LogOut, Settings } from 'lucide-react';
+import { Send, Bot, User, Sparkles, Plus, Monitor, ChevronDown, History, Paperclip, X, FileText, Image as ImageIcon, Cloud, HardDrive, Edit2, Download, Mic, Wand2, Eye, FileSpreadsheet, Presentation, File, MoreVertical, Trash2, Check, Camera, Video, Copy, ThumbsUp, ThumbsDown, Share, Search } from 'lucide-react';
 import { renderAsync } from 'docx-preview';
 import * as XLSX from 'xlsx';
 import { Menu, Transition, Dialog } from '@headlessui/react';
 import { generateChatResponse } from '../services/geminiService';
 import { chatStorageService } from '../services/chatStorageService';
-import { apiService } from '../services/apiService';
 import { useLanguage } from '../context/LanguageContext';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -18,13 +17,10 @@ import LiveAI from '../Components/LiveAI';
 import ImageEditor from '../Components/ImageEditor';
 import ModelSelector from '../Components/ModelSelector';
 import axios from 'axios';
-import { apis, AppRoute } from '../types';
+import { apis } from '../types';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
 import { detectMode, getModeName, getModeIcon, getModeColor } from '../utils/modeDetection';
-import { faqs } from '../constants';
-import { useRecoilState } from 'recoil';
-import { getUserData, userData, clearUser } from '../userStore/userData';
 
 
 const WELCOME_MESSAGE = `Hello! I’m AISA, your Artificial Intelligence Super Assistant.
@@ -97,7 +93,7 @@ const Chat = () => {
   const [sessions, setSessions] = useState([]);
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [showHistory, setShowHistory] = useState(true);
+  const [showHistory, setShowHistory] = useState(false);
   const messagesEndRef = useRef(null);
   const [currentSessionId, setCurrentSessionId] = useState(sessionId || 'new');
   const [typingMessageId, setTypingMessageId] = useState(null);
@@ -130,81 +126,8 @@ const Chat = () => {
   const recognitionRef = useRef(null);
   const [isModelSelectorOpen, setIsModelSelectorOpen] = useState(false);
   const [selectedToolType, setSelectedToolType] = useState(null);
-  const [isDeepSearch, setIsDeepSearch] = useState(false);
-  const [isImageMode, setIsImageMode] = useState(false);
   const [currentMode, setCurrentMode] = useState('NORMAL_CHAT');
   const abortControllerRef = useRef(null);
-
-  // Profile & FAQ State
-  const { t, language: currentLang, region, regionFlags } = useLanguage();
-  const getFlagUrl = (code) => `https://flagcdn.com/w40/${code.toLowerCase()}.png`;
-
-  const [currentUserData, setUserRecoil] = useRecoilState(userData);
-  const user = currentUserData.user || getUserData() || { name: "Loading...", email: "...", role: "user" };
-  const token = getUserData()?.token;
-
-  const [isFaqOpen, setIsFaqOpen] = useState(false);
-  const [openFaqIndex, setOpenFaqIndex] = useState(null);
-  const [activeTab, setActiveTab] = useState("faq");
-  const [issueType, setIssueType] = useState("General Inquiry");
-  const [issueText, setIssueText] = useState("");
-  const [isSending, setIsSending] = useState(false);
-  const [sendStatus, setSendStatus] = useState(null);
-
-  const issueOptions = [
-    "General Inquiry",
-    "Payment Issue",
-    "Refund Request",
-    "Technical Support",
-    "Account Access",
-    "Other"
-  ];
-
-  const handleSupportSubmit = async () => {
-    if (!issueText.trim()) return;
-    setIsSending(true);
-    setSendStatus(null);
-    try {
-      await axios.post(apis.support, {
-        email: user?.email || "guest@ai-mall.in",
-        issueType,
-        message: issueText,
-        userId: user?.id || null
-      });
-      setSendStatus('success');
-      setIssueText("");
-      setTimeout(() => setSendStatus(null), 3000);
-    } catch (error) {
-      console.error("Support submission failed", error);
-      setSendStatus('error');
-    } finally {
-      setIsSending(false);
-    }
-  };
-
-  const handleLogout = () => {
-    localStorage.clear();
-    clearUser(); // Update Recoil state
-    navigate(AppRoute.LANDING);
-  };
-
-  // Guest User Chat Limits (Merged from Remote)
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [guestChatCount, setGuestChatCount] = useState(0);
-
-  // Check if user is logged in and initialize guest chat count
-  useEffect(() => {
-    const user = localStorage.getItem('user');
-    const token = localStorage.getItem('token');
-    const isAuthenticated = !!(user && token && user !== 'null' && user !== 'undefined');
-    setIsLoggedIn(isAuthenticated);
-
-    // Load guest chat count from localStorage if not logged in
-    if (!isAuthenticated) {
-      const savedCount = localStorage.getItem('guestChatCount');
-      setGuestChatCount(savedCount ? parseInt(savedCount, 10) : 0);
-    }
-  }, []);
 
   // Close menu on click outside
   useEffect(() => {
@@ -231,16 +154,9 @@ const Chat = () => {
   const processFile = (file) => {
     if (!file) return;
 
-    // Block file uploads for guest users
-    if (!isLoggedIn) {
-      toast.error('Please log in to upload files and images');
-      return;
-    }
-
     // Validate file type
     const validTypes = [
       'image/',
-      'video/',
       'application/pdf',
       'application/msword',
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
@@ -272,19 +188,6 @@ const Chat = () => {
   };
 
   const handlePaste = (e) => {
-    // Block paste for guest users
-    if (!isLoggedIn && (e.clipboardData.files?.length > 0 || e.clipboardData.items)) {
-      // Check if there are files in clipboard
-      const hasFiles = e.clipboardData.files?.length > 0 ||
-        Array.from(e.clipboardData.items || []).some(item => item.kind === 'file');
-
-      if (hasFiles) {
-        e.preventDefault();
-        toast.error('Please log in to upload files and images');
-        return;
-      }
-    }
-
     // Handle files pasted from file system
     if (e.clipboardData.files && e.clipboardData.files.length > 0) {
       e.preventDefault();
@@ -337,6 +240,195 @@ const Chat = () => {
     }
   };
 
+  const handleGenerateVideo = async () => {
+    try {
+      if (!inputRef.current?.value.trim()) {
+        toast.error('Please enter a prompt for video generation');
+        return;
+      }
+
+      const prompt = inputRef.current.value;
+      setIsLoading(true);
+
+      // Show a message that video generation is in progress
+      const newMessage = {
+        id: Date.now().toString(),
+        type: 'ai',
+        text: `🎬 Generating video from prompt: "${prompt}"\n\nPlease wait, this may take a moment...`,
+        timestamp: new Date(),
+      };
+
+      setMessages(prev => [...prev, newMessage]);
+      inputRef.current.value = '';
+      
+      try {
+        // Call the video generation endpoint
+        const response = await axios.post(`http://localhost:8080/api/video/generate`, {
+          prompt: prompt,
+          duration: 5, // default 5 seconds
+          quality: 'medium'
+        });
+
+        if (response.data.videoUrl) {
+          // Add the generated video to the message
+          const videoMessage = {
+            id: Date.now().toString(),
+            type: 'ai',
+            text: `🎥 Video generated successfully!`,
+            videoUrl: response.data.videoUrl,
+            timestamp: new Date(),
+          };
+
+          setMessages(prev => {
+            const updated = [...prev];
+            updated[updated.length - 1] = videoMessage;
+            return updated;
+          });
+
+          toast.success('Video generated successfully!');
+        }
+      } catch (error) {
+        const errorMsg = error.response?.data?.message || 'Failed to generate video';
+        setMessages(prev => {
+          const updated = [...prev];
+          updated[updated.length - 1].text = `❌ ${errorMsg}`;
+          return updated;
+        });
+        toast.error(errorMsg);
+      }
+    } catch (error) {
+      console.error('Video generation error:', error);
+      toast.error('Error initiating video generation');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleGenerateImage = async () => {
+    try {
+      if (!inputRef.current?.value.trim()) {
+        toast.error('Please enter a prompt for image generation');
+        return;
+      }
+
+      const prompt = inputRef.current.value;
+      setIsLoading(true);
+
+      // Show a message that image generation is in progress
+      const newMessage = {
+        id: Date.now().toString(),
+        type: 'ai',
+        text: `🎨 Generating image from prompt: "${prompt}"\n\nPlease wait, this may take a moment...`,
+        timestamp: new Date(),
+      };
+
+      setMessages(prev => [...prev, newMessage]);
+      inputRef.current.value = '';
+      
+      try {
+        // Call the image generation endpoint
+        const response = await axios.post(`http://localhost:8080/api/image/generate`, {
+          prompt: prompt
+        });
+
+        if (response.data.imageUrl) {
+          // Add the generated image to the message
+          const imageMessage = {
+            id: Date.now().toString(),
+            type: 'ai',
+            text: `🖼️ Image generated successfully!`,
+            imageUrl: response.data.imageUrl,
+            timestamp: new Date(),
+          };
+
+          setMessages(prev => {
+            const updated = [...prev];
+            updated[updated.length - 1] = imageMessage;
+            return updated;
+          });
+
+          toast.success('Image generated successfully!');
+        }
+      } catch (error) {
+        const errorMsg = error.response?.data?.message || 'Failed to generate image';
+        setMessages(prev => {
+          const updated = [...prev];
+          updated[updated.length - 1].text = `❌ ${errorMsg}`;
+          return updated;
+        });
+        toast.error(errorMsg);
+      }
+    } catch (error) {
+      console.error('Image generation error:', error);
+      toast.error('Error initiating image generation');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleDeepSearch = async () => {
+    try {
+      if (!inputRef.current?.value.trim()) {
+        toast.error('Please enter a topic for deep search');
+        return;
+      }
+
+      const query = inputRef.current.value;
+      setIsLoading(true);
+
+      // Show a message that deep search is in progress
+      const newMessage = {
+        id: Date.now().toString(),
+        type: 'ai',
+        text: `🔍 Performing deep search for: "${query}"\n\nSearching the web and analyzing results... This may take a moment...`,
+        timestamp: new Date(),
+      };
+
+      setMessages(prev => [...prev, newMessage]);
+      inputRef.current.value = '';
+      
+      try {
+        // Send message with deep search context
+        const response = await generateChatResponse(query, {
+          mode: 'deep-search',
+          context: [...messages.map(m => ({ role: m.role || 'user', content: m.text || m.content })), { role: 'user', content: query }]
+        }, selectedModel);
+
+        if (response) {
+          // Add the deep search result
+          const searchMessage = {
+            id: Date.now().toString(),
+            type: 'ai',
+            text: response,
+            content: response,
+            timestamp: new Date(),
+          };
+
+          setMessages(prev => {
+            const updated = [...prev];
+            updated[updated.length - 1] = searchMessage;
+            return updated;
+          });
+
+          toast.success('Deep search completed!');
+        }
+      } catch (error) {
+        const errorMsg = error.message || 'Failed to perform deep search';
+        setMessages(prev => {
+          const updated = [...prev];
+          updated[updated.length - 1].text = `❌ ${errorMsg}`;
+          return updated;
+        });
+        toast.error(errorMsg);
+      }
+    } catch (error) {
+      console.error('Deep search error:', error);
+      toast.error('Error initiating deep search');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleModelSelect = (modelId) => {
     if (selectedToolType) {
       setToolModels(prev => ({
@@ -360,31 +452,36 @@ const Chat = () => {
         const user = JSON.parse(localStorage.getItem('user'));
         const userId = user?.id || user?._id;
         if (userId) {
-          const res = await axios.post(apis.getUserAgents, { userId });
-          const agents = res.data?.agents || [];
-          // Add default AISA agent if not present
-          const processedAgents = [{ agentName: 'AISA', category: 'General', avatar: '/AGENTS_IMG/AISA.png' }, ...agents];
-          setUserAgents(processedAgents);
-
-          // Find agent if already chatting with one (placeholder for now)
-          // For now, default to AISA
+          try {
+            const res = await axios.post(apis.getUserAgents, { userId });
+            const agents = res.data?.agents || [];
+            // Add default AISA agent if not present
+            const processedAgents = [{ agentName: 'AISA', category: 'General', avatar: '/AGENTS_IMG/AISA.png' }, ...agents];
+            setUserAgents(processedAgents);
+          } catch (agentErr) {
+            // Silently use defaults if fetch fails (no console warning)
+            setUserAgents([{ agentName: 'AISA', category: 'General', avatar: '/AGENTS_IMG/AISA.png' }]);
+          }
+        } else {
+          // No user logged in, use default
+          setUserAgents([{ agentName: 'AISA', category: 'General', avatar: '/AGENTS_IMG/AISA.png' }]);
         }
       } catch (err) {
-        console.error("Error fetching user agents:", err);
+        // Silently handle errors
         setUserAgents([{ agentName: 'AISA', category: 'General', avatar: '/AGENTS_IMG/AISA.png' }]);
       }
     };
     loadSessions();
-  }, [sessionId]); // Only reload if sessionId change or on mount
+  }, [messages]);
 
-  const isNavigatingRef = useRef(null); // Stores sessionId we are navigating to
+  const isNavigatingRef = useRef(false);
 
   useEffect(() => {
     const initChat = async () => {
       // If we just navigated from 'new' to a real ID in handleSendMessage,
       // don't clear the messages we already have in state.
-      if (isNavigatingRef.current === sessionId) {
-        isNavigatingRef.current = null;
+      if (isNavigatingRef.current) {
+        isNavigatingRef.current = false;
         return;
       }
 
@@ -434,7 +531,7 @@ const Chat = () => {
     setShowHistory(false);
   };
 
-
+  const { language: currentLang } = useLanguage();
 
   const handleDriveClick = () => {
     setIsAttachMenuOpen(false);
@@ -462,30 +559,9 @@ const Chat = () => {
     if (isSendingRef.current) return;
 
     // Use overrideContent if provided (for instant voice sending), otherwise fallback to state
-    let contentToSend = typeof overrideContent === 'string' ? overrideContent : inputValue.trim();
-
-    // Prepend /image command if in image mode
-    if (isImageMode && !contentToSend.startsWith('/image') && !contentToSend.startsWith('/imagine')) {
-      contentToSend = `/image ${contentToSend}`;
-    }
+    const contentToSend = typeof overrideContent === 'string' ? overrideContent : inputValue.trim();
 
     if ((!contentToSend && filePreviews.length === 0) || isLoading) return;
-
-    // Guest Chat Limits - Check before processing
-    if (!isLoggedIn) {
-      // Block if guest has already sent 4 messages
-      if (guestChatCount >= 4) {
-        toast.error('You have reached the free message limit. Please log in to continue chatting! 🔒', {
-          duration: 6000,
-          icon: '⚠️',
-          style: {
-            background: '#ef4444',
-            color: '#fff',
-          },
-        });
-        return;
-      }
-    }
 
     isSendingRef.current = true;
 
@@ -519,19 +595,18 @@ const Chat = () => {
                   p.type.includes('powerpoint') || p.type.includes('presentation') ? 'pptx' : 'file'
         })),
         agentName: activeAgent.agentName || activeAgent.name,
-        agentCategory: activeAgent.category,
-        isDeepSearch: isDeepSearch // Store Deep Search state
+        agentCategory: activeAgent.category
       };
+
       const updatedMessages = [...messages, userMsg];
       setMessages(updatedMessages);
       scrollToBottom(true, 'smooth'); // Force smooth scroll for user message
       setInputValue('');
-      setIsImageMode(false);
-      setIsDeepSearch(false);
 
       // Detect mode for UI indicator
       const detectedMode = detectMode(contentToSend, userMsg.attachments);
       setCurrentMode(detectedMode);
+
       handleRemoveFile(); // Clear file after sending
       setIsLoading(true);
 
@@ -540,67 +615,10 @@ const Chat = () => {
         await chatStorageService.saveMessage(activeSessionId, userMsg, title);
 
         if (isFirstMessage) {
-          isNavigatingRef.current = activeSessionId;
+          isNavigatingRef.current = true;
           setCurrentSessionId(activeSessionId);
           navigate(`/dashboard/chat/${activeSessionId}`, { replace: true });
-
-          // Manually reload sessions for the sidebar since we created a new one
-          const sessionsData = await chatStorageService.getSessions();
-          setSessions(sessionsData);
         }
-
-
-        // --- IMAGE GENERATION HANDLER ---
-        // Check if user wants to generate an image
-        const imageTrigger = userMsg.content.match(/^(\/image|\/imagine|generate image|create image)\s+(.+)/i);
-
-        if (imageTrigger) {
-          const prompt = imageTrigger[2];
-
-          // Add user message to UI immediately
-          // (Already added above)
-
-          // Simulate "Thinking..." phase
-          const thinkingId = (Date.now() + 1).toString();
-          setMessages(prev => [...prev, {
-            id: thinkingId,
-            role: 'model',
-            content: `Generating image for: "**${prompt}**"...`,
-            timestamp: Date.now() + 100,
-            isProcessing: true
-          }]);
-
-          try {
-            const response = await apiService.generateImage(prompt);
-            const imageUrl = response.data; // Expecting { success: true, data: "url" } or response.data if generic
-
-            // Replace "Thinking..." with actual Image
-            const imageMarkdown = `Here is your generated image:\n\n![${prompt}](${imageUrl})`;
-
-            setMessages(prev => prev.map(m => m.id === thinkingId ? {
-              ...m,
-              content: imageMarkdown
-            } : m));
-
-            await chatStorageService.saveMessage(activeSessionId, {
-              id: thinkingId,
-              role: 'model',
-              content: imageMarkdown,
-              timestamp: Date.now() + 100
-            });
-
-          } catch (imageError) {
-            setMessages(prev => prev.map(m => m.id === thinkingId ? {
-              ...m,
-              content: `❌ Failed to generate image. Please try again.`
-            } : m));
-          }
-
-          setIsLoading(false);
-          isSendingRef.current = false;
-          return; // EXIT FUNCTION EARLY
-        }
-        // --------------------------------
 
         // Send to AI for response
         const caps = getAgentCapabilities(activeAgent.agentName, activeAgent.category);
@@ -655,20 +673,11 @@ REQUIRED OUTPUT FORMAT:
 (Repeat strictly for ALL ${filePreviews.length} files)
 
 ### RESPONSE FORMATTING RULES (STRICT):
-${isDeepSearch ? `
-1.  **🚀 DEEP SEARCH MODE**:
-    - Provide a **Detailed Analysis** (Target: 400-600 words).
-    - Cover the topic thoroughly with context and examples.
-    - Use clear sections/headings.
-` : `
-1.  **Standard Response (DEFAULT)**:
-    - Provide a **Complete Explanation** (Target: 150-200 words).
-    - Explain the concept clearly in 2-3 paragraphs.
-    - Not too short (no one-liners), Not too long (no essays).
-`}
-
-3.  **Highlights**: Bold key terms.
-4.  **Emojis**: Use relevant emojis sparingly.
+1.  **Structure**: ALWAYS use **Bold Headings** and **Bullet Points**. Avoid long paragraphs.
+2.  **Point-wise Answers**: Break down complex topics into simple points.
+3.  **Highlights**: Bold key terms and important concepts.
+4.  **Summary**: Include a "One-line summary" or "Simple definition" at the start or end where appropriate.
+5.  **Emojis**: Use relevant emojis.
 
 ${caps.canUploadImages ? `IMAGE ANALYSIS CAPABILITIES:
 - You have the ability to see and analyze images provided by the user.
@@ -680,19 +689,27 @@ ${caps.canUploadDocs ? `DOCUMENT ANALYSIS CAPABILITIES:
 ${activeAgent.instructions ? `SPECIFIC AGENT INSTRUCTIONS:
 ${activeAgent.instructions}` : ''}
 `;
-        // Prepend instruction to the prompt based on mode
-        const promptToSend = isDeepSearch
-          ? `(MANDATORY: Provide a DEEP and DETAILED response, but keep it FOCUSED. Do not ramble. Target approx 400-600 words. Use sections.)\n\n${userMsg.content}`
-          : `(MANDATORY: Provide a STANDARD, HELPFUL response. Explain clearly in 2-3 paragraphs. Target approx 150-200 words.)\n\n${userMsg.content}`;
-
-        const aiResponseText = await generateChatResponse(
+        const aiResponseData = await generateChatResponse(
           messages,
-          promptToSend,
+          userMsg.content,
           SYSTEM_INSTRUCTION,
           userMsg.attachments,
           currentLang,
           abortControllerRef.current.signal
         );
+
+        // Handle response - could be string (old format) or object (new format with conversion)
+        let aiResponseText = '';
+        let conversionData = null;
+
+        if (typeof aiResponseData === 'string') {
+          aiResponseText = aiResponseData;
+        } else if (aiResponseData && typeof aiResponseData === 'object') {
+          aiResponseText = aiResponseData.reply || "No response generated.";
+          conversionData = aiResponseData.conversion || null;
+        } else {
+          aiResponseText = "No response generated.";
+        }
 
         // Check for multiple file analysis headers to split into separate cards
         const delimiter = '---SPLIT_RESPONSE---';
@@ -743,17 +760,30 @@ ${activeAgent.instructions}` : ''}
             // Wait before next word
             await new Promise(resolve => setTimeout(resolve, delay));
           }
-        }
 
-        if (!isSendingRef.current) {
-          setTypingMessageId(null);
-          return; // Exit function if stopped
-        }
+          if (!isSendingRef.current) {
+            setTypingMessageId(null);
+            return; // Exit function if stopped
+          }
 
-        setTypingMessageId(null); // Clear typing status
-        // After typing is complete, save the full message to history
-        await chatStorageService.saveMessage(activeSessionId, { ...modelMsg, content: partContent });
-        scrollToBottom();
+          setTypingMessageId(null); // Clear typing status
+
+          // Add conversion data if available
+          const finalModelMsg = { ...modelMsg, content: partContent };
+          if (conversionData && i === 0) {
+            // Attach conversion data to first message
+            finalModelMsg.conversion = conversionData;
+          }
+
+          // After typing is complete, save the full message to history
+          await chatStorageService.saveMessage(activeSessionId, finalModelMsg);
+
+          // CRITICAL: Update the state with the final message including conversion data
+          setMessages((prev) =>
+            prev.map(m => m.id === msgId ? finalModelMsg : m)
+          );
+          scrollToBottom();
+        }
       } catch (innerError) {
         console.error("Storage/API Error:", innerError);
         // Even if saving failed, we still have the local state
@@ -770,101 +800,19 @@ ${activeAgent.instructions}` : ''}
       toast.error(`Error: ${error.message || "Failed to send message"}`);
     } finally {
       setIsLoading(false);
+      isSendingRef.current = false;
       abortControllerRef.current = null; // Clean up abort controller
-
-      // Increment guest chat count if not logged in (only on successful send)
-      if (!isLoggedIn) {
-        const newCount = guestChatCount + 1;
-        setGuestChatCount(newCount);
-        localStorage.setItem('guestChatCount', newCount.toString());
-
-        // Show reminder after 2nd message
-        if (newCount === 2) {
-          toast('💡 Tip: Log in to save your chats and unlock all features!', {
-            duration: 5000,
-            icon: '🔐',
-            style: {
-              background: '#3b82f6',
-              color: '#fff',
-            },
-          });
-        }
-      }
-    }
-  };
-
-  const handleUndo = async () => {
-    if (messages.length === 0) return;
-
-    // Find the last user message index
-    const lastUserIdx = [...messages].reverse().findIndex(m => m.role === 'user');
-    if (lastUserIdx === -1) return;
-
-    const actualIdx = messages.length - 1 - lastUserIdx;
-    const messagesToRemove = messages.slice(actualIdx);
-    const restoredPrompt = messages[actualIdx].content;
-
-    const removeIds = messagesToRemove.map(m => m.id);
-    setMessages(prev => prev.filter(m => !removeIds.includes(m.id)));
-
-    if (restoredPrompt) setInputValue(restoredPrompt);
-
-    try {
-      for (const msg of messagesToRemove) {
-        await chatStorageService.deleteMessage(currentSessionId, msg.id);
-      }
-      toast.success("Last message undone");
-    } catch (error) {
-      console.error("Undo error:", error);
     }
   };
 
   const handleDeleteSession = async (e, id) => {
-    if (e) e.stopPropagation();
+    e.stopPropagation();
     if (window.confirm('Are you sure you want to delete this chat history?')) {
       await chatStorageService.deleteSession(id);
       const data = await chatStorageService.getSessions();
       setSessions(data);
       if (currentSessionId === id) {
         navigate('/dashboard/chat/new');
-      }
-    }
-  };
-
-  const handleMessageDelete = async (id) => {
-    if (window.confirm('Delete this message?')) {
-      try {
-        await chatStorageService.deleteMessage(currentSessionId, id);
-        setMessages(prev => prev.filter(m => m.id !== id));
-        toast.success("Message deleted");
-      } catch (error) {
-        console.error("Delete error:", error);
-        toast.error("Failed to delete message");
-      }
-    }
-  };
-
-  const handleRenameFile = async (msg) => {
-    const currentName = msg.attachment?.name || msg.attachments?.[0]?.name || 'file';
-    const newName = window.prompt('Enter new filename:', currentName);
-    if (newName && newName.trim() && newName.trim() !== currentName) {
-      try {
-        const updatedMsg = { ...msg };
-        if (updatedMsg.attachment) {
-          updatedMsg.attachment = { ...updatedMsg.attachment, name: newName.trim() };
-        }
-        if (updatedMsg.attachments && updatedMsg.attachments.length > 0) {
-          updatedMsg.attachments = updatedMsg.attachments.map((att, i) =>
-            i === 0 ? { ...att, name: newName.trim() } : att
-          );
-        }
-
-        await chatStorageService.updateMessage(currentSessionId, msg.id, updatedMsg);
-        setMessages(prev => prev.map(m => m.id === msg.id ? updatedMsg : m));
-        toast.success("File renamed");
-      } catch (error) {
-        console.error("Rename error:", error);
-        toast.error("Failed to rename file");
       }
     }
   };
@@ -1187,6 +1135,45 @@ ${activeAgent.instructions}` : ''}
   const [pdfLoadingId, setPdfLoadingId] = useState(null);
 
   const handlePdfAction = async (action, msg) => {
+    // If this message has a converted file, use it directly instead of rendering the chat bubble
+    if (msg.conversion && msg.conversion.file && msg.conversion.mimeType === 'application/pdf') {
+      try {
+        const byteCharacters = atob(msg.conversion.file);
+        const byteNumbers = new Array(byteCharacters.length);
+        for (let i = 0; i < byteCharacters.length; i++) {
+          byteNumbers[i] = byteCharacters.charCodeAt(i);
+        }
+        const byteArray = new Uint8Array(byteNumbers);
+        const blob = new Blob([byteArray], { type: 'application/pdf' });
+        const url = URL.createObjectURL(blob);
+
+        if (action === 'download') {
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = msg.conversion.fileName || 'converted.pdf';
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          toast.success("Converted PDF Downloaded");
+        } else if (action === 'open') {
+          window.open(url, '_blank');
+        } else if (action === 'share') {
+          const file = new File([blob], msg.conversion.fileName || 'converted.pdf', { type: 'application/pdf' });
+          if (navigator.canShare && navigator.canShare({ files: [file] })) {
+            await navigator.share({ files: [file], title: 'Converted Document' });
+          } else {
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = msg.conversion.fileName || 'converted.pdf';
+            a.click();
+          }
+        }
+        return; // Exit after handling conversion file
+      } catch (err) {
+        console.error("Error handling conversion file PDF action:", err);
+      }
+    }
+
     setPdfLoadingId(msg.id);
     try {
       const element = document.getElementById(`msg-text-${msg.id}`);
@@ -1803,12 +1790,14 @@ For "Remix" requests with an attachment, analyze the attached image, then create
         pricing={TOOL_PRICING}
       />
 
-
-
-      {/* Sidebar (History & Profile) */}
       <div
-        className={`fixed inset-y-0 left-0 z-50 h-full bg-secondary border-r border-border flex flex-col transition-all duration-300 transform 
-          ${showHistory ? 'translate-x-0 w-72' : '-translate-x-full w-0 overflow-hidden'} 
+        className={`
+          flex flex-col flex-shrink-0 bg-surface border-r border-border
+          transition-all duration-300 ease-in-out
+          
+          /* Mobile: Absolute overlay */
+          absolute inset-y-0 left-0 z-50 w-full sm:w-72
+          ${showHistory ? 'translate-x-0 shadow-2xl' : '-translate-x-full'}
 
           /* Desktop: Relative flow, animate width instead of transform */
           lg:relative lg:inset-auto lg:shadow-none lg:translate-x-0
@@ -1869,297 +1858,7 @@ For "Remix" requests with an attachment, analyze the attached image, then create
             <div className="px-4 text-xs text-subtext italic">No recent chats</div>
           )}
         </div>
-
-        {/* User Profile Footer (Restored) */}
-        <div className="p-3 border-t border-border bg-secondary/30 relative mt-auto">
-          {token ? (
-            /* Integrated Profile Dropdown Menu */
-            <Menu as="div" className="relative w-full">
-              <Menu.Button className="w-full text-left rounded-xl border border-transparent hover:bg-secondary transition-all cursor-pointer flex items-center gap-2 p-2 group outline-none focus:bg-secondary">
-                <div className="w-9 h-9 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-xs uppercase shrink-0 overflow-hidden border border-primary/10 group-hover:bg-primary/30 transition-colors">
-                  {user.avatar ? (
-                    <img
-                      src={user.avatar}
-                      alt={user.name}
-                      className="w-full h-full object-cover"
-                      onError={(e) => {
-                        e.target.style.display = 'none';
-                        const parent = e.target.parentElement;
-                        if (parent) {
-                          parent.classList.add("flex", "items-center", "justify-center");
-                          parent.innerText = user.name ? user.name.charAt(0).toUpperCase() : "U";
-                        }
-                      }}
-                    />
-                  ) : (
-                    user.name ? user.name.charAt(0).toUpperCase() : "U"
-                  )}
-                </div>
-
-                <div className="flex-1 min-w-0 text-left">
-                  <p className="text-sm font-bold text-maintext truncate group-hover:text-primary transition-colors">{user.name}</p>
-                  <p className="text-[11px] text-subtext truncate">{user.email}</p>
-                </div>
-
-                <div className="text-subtext group-hover:text-primary transition-colors">
-                  <ChevronUp className="w-4 h-4" />
-                </div>
-              </Menu.Button>
-
-              <Transition
-                as={Fragment}
-                enter="transition ease-out duration-100"
-                enterFrom="transform opacity-0 scale-95"
-                enterTo="transform opacity-100 scale-100"
-                leave="transition ease-in duration-75"
-                leaveFrom="transform opacity-100 scale-100"
-                leaveTo="transform opacity-0 scale-95"
-              >
-                <Menu.Items className="absolute bottom-full left-0 w-full mb-2 origin-bottom-left bg-card border border-border rounded-xl shadow-xl focus:outline-none overflow-hidden z-[60]">
-                  <div className="p-3 border-b border-border">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-sm uppercase shrink-0">
-                        {user.name ? user.name.charAt(0).toUpperCase() : "U"}
-                      </div>
-                      <div className="overflow-hidden">
-                        <p className="text-sm font-bold text-maintext truncate">{user.name}</p>
-                        <p className="text-xs text-subtext truncate">@{user.email?.split('@')[0]}</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="p-1">
-                    <Menu.Item>
-                      {({ active }) => (
-                        <button
-                          className={`${active ? 'bg-secondary text-primary' : 'text-maintext'
-                            } group flex w-full items-center gap-2 rounded-lg px-2 py-2 text-sm transition-colors`}
-                          onClick={() => toast('Upgrade plan coming soon!')}
-                        >
-                          <Sparkles className="h-4 w-4" />
-                          Upgrade plan
-                        </button>
-                      )}
-                    </Menu.Item>
-                    <Menu.Item>
-                      {({ active }) => (
-                        <button
-                          className={`${active ? 'bg-secondary text-primary' : 'text-maintext'
-                            } group flex w-full items-center gap-2 rounded-lg px-2 py-2 text-sm transition-colors`}
-                          onClick={() => navigate(AppRoute.PROFILE)}
-                        >
-                          <User className="h-4 w-4" />
-                          Personalization
-                        </button>
-                      )}
-                    </Menu.Item>
-                    <Menu.Item>
-                      {({ active }) => (
-                        <button
-                          className={`${active ? 'bg-secondary text-primary' : 'text-maintext'
-                            } group flex w-full items-center gap-2 rounded-lg px-2 py-2 text-sm transition-colors`}
-                          onClick={() => toast('Settings coming soon!')}
-                        >
-                          <Settings className="h-4 w-4" />
-                          Settings
-                        </button>
-                      )}
-                    </Menu.Item>
-                  </div>
-
-                  <div className="border-t border-border p-1">
-                    <Menu.Item>
-                      {({ active }) => (
-                        <button
-                          className={`${active ? 'bg-secondary text-primary' : 'text-maintext'
-                            } group flex w-full items-center justify-between rounded-lg px-2 py-2 text-sm transition-colors`}
-                          onClick={() => setIsFaqOpen(true)}
-                        >
-                          <div className="flex items-center gap-2">
-                            <HelpCircle className="h-4 w-4" />
-                            Help
-                          </div>
-                          <ChevronUp className="h-3 w-3 rotate-90" />
-                        </button>
-                      )}
-                    </Menu.Item>
-                    <Menu.Item>
-                      {({ active }) => (
-                        <button
-                          className={`${active ? 'bg-error/10 text-error' : 'text-maintext'
-                            } group flex w-full items-center gap-2 rounded-lg px-2 py-2 text-sm transition-colors hover:text-red-500`}
-                          onClick={handleLogout}
-                        >
-                          <LogOut className="h-4 w-4" />
-                          Log out
-                        </button>
-                      )}
-                    </Menu.Item>
-                  </div>
-                </Menu.Items>
-              </Transition>
-            </Menu>
-          ) : (
-            /* Guest / Login State */
-            <div
-              onClick={() => navigate(AppRoute.LOGIN)}
-              className="rounded-xl border border-transparent hover:bg-secondary transition-all cursor-pointer flex items-center gap-3 px-3 py-2 group"
-            >
-              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-xs uppercase shrink-0 border border-primary/10 group-hover:bg-primary/20 transition-colors">
-                <User className="w-4 h-4" />
-              </div>
-              <div className="font-bold text-maintext text-xs group-hover:text-primary transition-colors">
-                Log In
-              </div>
-            </div>
-          )}
-
-          <div className="mt-1 flex flex-col gap-1">
-            {/* Region/Language Indicator */}
-            {token && (
-              <button
-                onClick={() => {
-                  navigate(AppRoute.PROFILE, { state: { openLanguage: true, timestamp: Date.now() } });
-                }}
-                className="group flex items-center justify-center gap-2 px-2 py-1.5 rounded-lg text-subtext hover:bg-secondary hover:text-maintext transition-all text-[10px] font-bold uppercase tracking-wider border border-transparent hover:border-border"
-              >
-                <img
-                  src={getFlagUrl(regionFlags[region] || 'in')}
-                  alt={region}
-                  className="w-3.5 h-2.5 object-cover rounded-sm shadow-sm"
-                />
-                <span>{regionFlags[region] || 'IN'} - {currentLang.substring(0, 2).toUpperCase()}</span>
-              </button>
-            )}
-
-            {/* Separate FAQ Button Removed */}
-          </div>
-        </div>
       </div>
-
-      {/* FAQ Modal */}
-      {
-        isFaqOpen && (
-          <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-            <div className="bg-card rounded-2xl w-full max-w-2xl max-h-[80vh] overflow-hidden flex flex-col shadow-2xl animate-in fade-in zoom-in duration-200">
-              <div className="p-6 border-b border-border flex justify-between items-center bg-secondary">
-                <div className="flex gap-4">
-                  <button
-                    onClick={() => setActiveTab('faq')}
-                    className={`text-lg font-bold px-4 py-2 rounded-lg transition-colors ${activeTab === 'faq' ? 'bg-primary/10 text-primary' : 'text-subtext hover:text-maintext'}`}
-                  >
-                    FAQ
-                  </button>
-                  <button
-                    onClick={() => setActiveTab('help')}
-                    className={`text-lg font-bold px-4 py-2 rounded-lg transition-colors ${activeTab === 'help' ? 'bg-primary/10 text-primary' : 'text-subtext hover:text-maintext'}`}
-                  >
-                    Help
-                  </button>
-                </div>
-                <button
-                  onClick={() => setIsFaqOpen(false)}
-                  className="p-2 hover:bg-black/5 rounded-full text-subtext transition-colors"
-                >
-                  <X className="w-6 h-6" />
-                </button>
-              </div>
-
-              <div className="flex-1 overflow-y-auto p-6 space-y-4">
-                {activeTab === 'faq' ? (
-                  <>
-                    <p className="text-sm text-subtext font-medium">Get quick answers to common questions about our platform</p>
-                    {faqs.map((faq, index) => (
-                      <div key={index} className="border border-border rounded-xl bg-card overflow-hidden hover:border-primary/30 transition-all">
-                        <button
-                          onClick={() => setOpenFaqIndex(openFaqIndex === index ? null : index)}
-                          className="w-full flex justify-between items-center p-4 text-left hover:bg-secondary transition-colors focus:outline-none"
-                        >
-                          <span className="font-semibold text-maintext text-[15px]">{faq.question}</span>
-                          {openFaqIndex === index ? (
-                            <ChevronUp className="w-4 h-4 text-primary" />
-                          ) : (
-                            <ChevronDown className="w-4 h-4 text-subtext" />
-                          )}
-                        </button>
-                        <div
-                          className={`overflow-hidden transition-all duration-300 ease-in-out ${openFaqIndex === index ? 'max-h-96 opacity-100 bg-secondary/50' : 'max-h-0 opacity-0'}`}
-                        >
-                          <div className="p-4 pt-0 text-subtext text-sm leading-relaxed border-t border-border/50 mt-2 pt-3">
-                            {faq.answer}
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </>
-                ) : (
-                  <div className="flex flex-col gap-6">
-                    <div>
-                      <label className="block text-sm font-bold text-maintext mb-2">Select Issue Category</label>
-                      <div className="relative">
-                        <select
-                          value={issueType}
-                          onChange={(e) => setIssueType(e.target.value)}
-                          className="w-full p-4 pr-10 rounded-xl bg-secondary border border-border focus:border-primary outline-none appearance-none text-maintext font-medium cursor-pointer hover:border-primary/50 transition-colors"
-                        >
-                          {issueOptions.map((opt) => (
-                            <option key={opt} value={opt}>{opt}</option>
-                          ))}
-                        </select>
-                        <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-subtext pointer-events-none" />
-                      </div>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-bold text-maintext mb-2">Describe your issue</label>
-                      <textarea
-                        className="w-full p-4 rounded-xl bg-secondary border border-border focus:border-primary outline-none resize-none text-maintext min-h-[150px]"
-                        placeholder="Please provide details about the problem you are facing..."
-                        value={issueText}
-                        onChange={(e) => setIssueText(e.target.value)}
-                      />
-                    </div>
-                    <button
-                      onClick={handleSupportSubmit}
-                      disabled={isSending || !issueText.trim()}
-                      className={`flex items-center justify-center gap-2 bg-primary text-white py-3 rounded-xl font-bold transition-all shadow-lg shadow-primary/20 ${isSending || !issueText.trim() ? 'opacity-50 cursor-not-allowed' : 'hover:opacity-90'}`}
-                    >
-                      {isSending ? (
-                        <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      ) : (
-                        <>
-                          <HelpCircle className="w-5 h-5" />
-                          Send to Support
-                        </>
-                      )}
-                    </button>
-                    {sendStatus === 'success' && (
-                      <div className="p-3 bg-green-500/10 text-green-600 dark:text-green-400 rounded-lg text-sm text-center font-medium border border-green-500/20 animate-in fade-in slide-in-from-top-2">
-                        Ticket Submitted Successfully! Our team will contact you soon.
-                      </div>
-                    )}
-                    {sendStatus === 'error' && (
-                      <div className="p-3 bg-red-500/10 text-red-600 dark:text-red-400 rounded-lg text-sm text-center font-medium border border-red-500/20 animate-in fade-in slide-in-from-top-2">
-                        Failed to submit ticket. Please try again or email us directly.
-                      </div>
-                    )}
-                    <p className="text-xs text-center text-subtext">
-                      Or email us directly at <a href="mailto:support@a-series.in" className="text-primary font-medium hover:underline">support@a-series.in</a>
-                    </p>
-                  </div>
-                )}
-              </div>
-              <div className="p-4 border-t border-border bg-surface text-center">
-                <button
-                  onClick={() => setIsFaqOpen(false)}
-                  className="px-6 py-2 bg-primary text-white rounded-xl font-bold hover:opacity-90 transition-all shadow-lg shadow-primary/20"
-                >
-                  Close
-                </button>
-              </div>
-            </div>
-          </div>
-        )
-      }
 
       {/* Main Area */}
       <div
@@ -2286,40 +1985,35 @@ For "Remix" requests with an attachment, analyze the attached image, then create
               {messages.map((msg) => (
                 <div
                   key={msg.id}
-                  className={`group relative flex items-start gap-2 md:gap-3 max-w-4xl mx-auto cursor-pointer ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}
+                  className={`group relative flex items-start gap-2 md:gap-3 max-w-4xl mx-auto cursor-pointer ${msg.role === 'user' ? 'flex-row-reverse' : ''
+                    }`}
                   onClick={() => setActiveMessageId(activeMessageId === msg.id ? null : msg.id)}
                 >
+                  {/* Actions Menu (Always visible for discoverability) */}
+
                   <div
-                    className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${msg.role === 'user' ? 'bg-primary' : 'bg-surface border border-border'}`}
+                    className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${msg.role === 'user'
+                      ? 'bg-primary'
+                      : 'bg-surface border border-border'
+                      }`}
                   >
                     {msg.role === 'user' ? (
                       <User className="w-4 h-4 text-white" />
                     ) : (
-                      <Bot className={`w-4 h-4 ${msg.isDeepSearch ? 'text-purple-600' : 'text-primary'}`} />
+                      <Bot className="w-4 h-4 text-primary" />
                     )}
                   </div>
 
-                  <div className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'} max-w-[85%] sm:max-w-[80%]`}>
+                  <div
+                    className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'
+                      } max-w-[85%] sm:max-w-[80%]`}
+                  >
                     <div
                       className={`group/bubble relative px-4 py-2 rounded-2xl text-sm leading-normal whitespace-pre-wrap break-words shadow-sm w-fit max-w-full transition-all duration-300 min-h-[40px] ${msg.role === 'user'
-                        ? 'bg-primary text-white rounded-tr-none flex items-center px-5 py-3 rounded-3xl'
+                        ? 'bg-primary text-white rounded-tr-none block px-5 py-3 rounded-3xl'
                         : `bg-surface border border-border text-maintext rounded-tl-none block ${msg.id === typingMessageId ? 'ai-typing-glow ai-typing-shimmer outline outline-offset-1 outline-primary/20' : ''}`
                         }`}
                     >
-                      {/* Deep Search Badge */}
-                      {msg.isDeepSearch && (
-                        <div className="mb-2 flex items-center gap-1.5 bg-white/10 border border-white/20 text-white px-2 py-0.5 rounded-lg text-[10px] font-bold w-fit underline decoration-white/50 underline-offset-2">
-                          <Wand2 className="w-3 h-3 text-white" />
-                          <span>DEEP SEARCH</span>
-                        </div>
-                      )}
-
-                      {msg.isProcessing && (
-                        <div className="flex items-center gap-2 mb-2 text-primary">
-                          <Loader2 className="w-4 h-4 animate-spin text-primary" />
-                          <span className="text-xs font-medium animate-pulse text-primary">Processing...</span>
-                        </div>
-                      )}
 
                       {/* Attachment Display */}
                       {(msg.attachments || msg.attachment) && (
@@ -2353,12 +2047,15 @@ For "Remix" requests with an attachment, analyze the attached image, then create
                                     className="flex-1 flex items-center gap-3 min-w-0 cursor-pointer p-0.5 rounded-lg"
                                     onClick={() => setViewingDoc(att)}
                                   >
-                                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${msg.role === 'user' ? 'bg-white shadow-sm' :
-                                      (att.name || '').toLowerCase().endsWith('.pdf') ? 'bg-red-50 dark:bg-red-900/20' :
-                                        (att.name || '').toLowerCase().match(/\.(doc|docx)$/) ? 'bg-blue-50 dark:bg-blue-900/20' :
-                                          (att.name || '').toLowerCase().match(/\.(xls|xlsx|csv)$/) ? 'bg-emerald-50 dark:bg-emerald-900/20' :
-                                            (att.name || '').toLowerCase().match(/\.(ppt|pptx)$/) ? 'bg-orange-50 dark:bg-orange-900/20' : 'bg-secondary'
-                                      }`}>
+                                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${(() => {
+                                      const name = (att.name || '').toLowerCase();
+                                      if (msg.role === 'user') return 'bg-white shadow-sm';
+                                      if (name.endsWith('.pdf')) return 'bg-red-50 dark:bg-red-900/20';
+                                      if (name.match(/\.(doc|docx)$/)) return 'bg-blue-50 dark:bg-blue-900/20';
+                                      if (name.match(/\.(xls|xlsx|csv)$/)) return 'bg-emerald-50 dark:bg-emerald-900/20';
+                                      if (name.match(/\.(ppt|pptx)$/)) return 'bg-orange-50 dark:bg-orange-900/20';
+                                      return 'bg-secondary';
+                                    })()}`}>
                                       {(() => {
                                         const name = (att.name || '').toLowerCase();
                                         const baseClass = "w-6 h-6";
@@ -2400,7 +2097,67 @@ For "Remix" requests with an attachment, analyze the attached image, then create
                         </div>
                       )}
 
-                      {/* Message Content */}
+                      {/* Video Display */}
+                      {msg.videoUrl && (
+                        <div className="flex flex-col gap-3 mb-3 mt-1">
+                          <div className="relative group/video overflow-hidden rounded-xl border border-white/20 shadow-lg transition-all hover:scale-[1.01] cursor-pointer max-w-[400px] bg-black">
+                            <video
+                              src={msg.videoUrl}
+                              controls
+                              className="w-full h-auto max-h-[500px] object-contain"
+                              autoPlay={false}
+                            />
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDownload(msg.videoUrl, `video-${msg.id}.mp4`);
+                              }}
+                              className="absolute top-2 right-2 p-2 bg-black/40 text-white rounded-full opacity-0 group-hover/video:opacity-100 transition-all hover:bg-black/60 backdrop-blur-md border border-white/10 flex items-center justify-center"
+                              title="Download"
+                            >
+                              <Download className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Image Display */}
+                      {msg.imageUrl && (
+                        <div className="flex flex-col gap-3 mb-3 mt-1">
+                          <div className="relative group/generated overflow-hidden rounded-xl border border-white/20 shadow-lg transition-all hover:scale-[1.01] cursor-pointer max-w-[400px] bg-black/5">
+                            <div className="absolute top-0 left-0 right-0 p-3 bg-gradient-to-b from-black/60 to-transparent z-10 flex justify-between items-center opacity-0 group-hover/generated:opacity-100 transition-opacity">
+                              <div className="flex items-center gap-2">
+                                <Sparkles className="w-4 h-4 text-primary animate-pulse" />
+                                <span className="text-[10px] font-bold text-white uppercase tracking-widest">AI Generated Image</span>
+                              </div>
+                            </div>
+                            <img
+                              src={msg.imageUrl}
+                              alt="Generated Image"
+                              className="w-full h-auto max-h-[500px] object-contain"
+                              loading="lazy"
+                              onError={(e) => {
+                                e.target.src = 'https://placehold.co/600x400?text=Image+Failed+to+Load';
+                              }}
+                            />
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDownload(msg.imageUrl, `image-${msg.id}.png`);
+                              }}
+                              className="absolute bottom-3 right-3 p-2.5 bg-primary text-white rounded-xl opacity-0 group-hover/generated:opacity-100 transition-all hover:bg-primary/90 shadow-lg border border-white/20 scale-90 group-hover/generated:scale-100"
+                              title="Download"
+                            >
+                              <div className="flex items-center gap-2 px-1">
+                                <Download className="w-4 h-4" />
+                                <span className="text-[10px] font-bold uppercase">Download</span>
+                              </div>
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+
                       {editingMessageId === msg.id ? (
                         <div className="flex flex-col gap-3 min-w-[200px] w-full">
                           <textarea
@@ -2536,11 +2293,12 @@ For "Remix" requests with an attachment, analyze the attached image, then create
                         )
                       )}
 
-                      {/* File conversion download button */}
+                      {/* File Conversion Download Button */}
                       {msg.conversion && msg.conversion.file && (
-                        <div className="mt-4 pt-3 border-t border-border/40 w-full block">
+                        <div className="mt-4 pt-3 border-t border-border/40">
                           <button
                             onClick={() => {
+                              // Create download link
                               const byteCharacters = atob(msg.conversion.file);
                               const byteNumbers = new Array(byteCharacters.length);
                               for (let i = 0; i < byteCharacters.length; i++) {
@@ -2559,13 +2317,24 @@ For "Remix" requests with an attachment, analyze the attached image, then create
                             }}
                             className="flex items-center gap-3 px-4 py-3 bg-primary/10 hover:bg-primary/20 border border-primary/30 rounded-xl transition-all group w-full"
                           >
-                            <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${msg.conversion.fileName.toLowerCase().endsWith('.pdf') ? 'bg-red-50 text-red-600' : 'bg-blue-50 text-blue-600'}`}>
-                              {msg.conversion.fileName.toLowerCase().endsWith('.pdf') ? <FileText className="w-5 h-5" /> : <File className="w-5 h-5" />}
+                            <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${msg.conversion.fileName.toLowerCase().endsWith('.pdf')
+                              ? 'bg-red-50 text-red-600'
+                              : 'bg-blue-50 text-blue-600'
+                              }`}>
+                              {msg.conversion.fileName.toLowerCase().endsWith('.pdf')
+                                ? <FileText className="w-5 h-5" />
+                                : <File className="w-5 h-5" />
+                              }
                             </div>
                             <div className="flex-1 text-left">
-                              <p className="text-[15px] font-bold text-primary transition-colors mb-0.5">{msg.conversion.fileName}</p>
+                              <p className="text-[15px] font-bold text-primary transition-colors mb-0.5">
+                                {msg.conversion.fileName}
+                              </p>
                               <div className="flex items-center gap-2">
-                                <p className="text-xs font-semibold flex items-center gap-1 px-2 py-0.5 rounded-md border text-primary bg-primary/10 border-primary/20">
+                                <p className={`text-xs font-semibold flex items-center gap-1 px-2 py-0.5 rounded-md border ${msg.conversion.fileName.toLowerCase().endsWith('.pdf')
+                                  ? 'text-primary bg-primary/10 border-primary/20'
+                                  : 'text-primary bg-primary/10 border-primary/20'
+                                  }`}>
                                   Click here to download {msg.conversion.fileName.split('.').pop().toLowerCase()}
                                 </p>
                               </div>
@@ -2579,6 +2348,7 @@ For "Remix" requests with an attachment, analyze the attached image, then create
                         <div className="mt-4 pt-3 border-t border-border/40 w-full block">
                           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 w-full">
                             {(() => {
+                              // Detect if the AI response contains Hindi (Devanagari script)
                               const isHindiContent = /[\u0900-\u097F]/.test(msg.content);
                               const prompts = isHindiContent ? FEEDBACK_PROMPTS.hi : FEEDBACK_PROMPTS.en;
                               const promptIndex = (msg.id.toString().charCodeAt(msg.id.toString().length - 1) || 0) % prompts.length;
@@ -2643,7 +2413,8 @@ For "Remix" requests with an attachment, analyze the attached image, then create
                                         {({ active }) => (
                                           <button
                                             onClick={() => handlePdfAction('open', msg)}
-                                            className={`${active ? 'bg-primary text-white' : 'text-maintext'} group flex w-full items-center rounded-md px-2 py-2 text-xs font-medium`}
+                                            className={`${active ? 'bg-primary text-white' : 'text-maintext'
+                                              } group flex w-full items-center rounded-md px-2 py-2 text-xs font-medium`}
                                           >
                                             Open PDF
                                           </button>
@@ -2653,7 +2424,8 @@ For "Remix" requests with an attachment, analyze the attached image, then create
                                         {({ active }) => (
                                           <button
                                             onClick={() => handlePdfAction('download', msg)}
-                                            className={`${active ? 'bg-primary text-white' : 'text-maintext'} group flex w-full items-center rounded-md px-2 py-2 text-xs font-medium`}
+                                            className={`${active ? 'bg-primary text-white' : 'text-maintext'
+                                              } group flex w-full items-center rounded-md px-2 py-2 text-xs font-medium`}
                                           >
                                             Download
                                           </button>
@@ -2663,7 +2435,8 @@ For "Remix" requests with an attachment, analyze the attached image, then create
                                         {({ active }) => (
                                           <button
                                             onClick={() => handlePdfAction('share', msg)}
-                                            className={`${active ? 'bg-primary text-white' : 'text-maintext'} group flex w-full items-center rounded-md px-2 py-2 text-xs font-medium`}
+                                            className={`${active ? 'bg-primary text-white' : 'text-maintext'
+                                              } group flex w-full items-center rounded-md px-2 py-2 text-xs font-medium`}
                                           >
                                             Share PDF
                                           </button>
@@ -2678,25 +2451,17 @@ For "Remix" requests with an attachment, analyze the attached image, then create
                         </div>
                       )}
                     </div>
-
                     <span className="text-[10px] text-subtext mt-0 px-1">
-                      {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      {new Date(msg.timestamp).toLocaleTimeString([], {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
                     </span>
                   </div>
 
-                  {/* Hover Actions - User Only */}
+                  {/* Hover Actions - User Only (AI has footer) */}
                   {msg.role === 'user' && (
                     <div className={`flex items-center gap-1 transition-opacity duration-200 self-start mt-2 mr-0 flex-row-reverse ${activeMessageId === msg.id ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
-                      {/* Undo Action */}
-                      {(messages[messages.length - 1]?.id === msg.id || (messages[messages.length - 1]?.role === 'model' && messages[messages.length - 2]?.id === msg.id)) && (
-                        <button
-                          onClick={handleUndo}
-                          className="p-1.5 text-subtext hover:text-primary hover:bg-surface rounded-full transition-colors"
-                          title="Undo Last"
-                        >
-                          <RotateCcw className="w-4 h-4" />
-                        </button>
-                      )}
                       <button
                         onClick={() => handleCopyMessage(msg.content || msg.text)}
                         className="p-1.5 text-subtext hover:text-primary hover:bg-surface rounded-full transition-colors"
@@ -2723,7 +2488,7 @@ For "Remix" requests with an attachment, analyze the attached image, then create
                         </button>
                       )}
                       <button
-                        onClick={() => handleDeleteSession(null, msg.id)} // Corrected to use available delete function if needed, or I'll define a correct one
+                        onClick={() => handleMessageDelete(msg.id)}
                         className="p-1.5 text-subtext hover:text-red-500 hover:bg-red-50 rounded-full transition-colors"
                         title="Delete"
                       >
@@ -2733,12 +2498,13 @@ For "Remix" requests with an attachment, analyze the attached image, then create
                   )}
                 </div>
               ))}
-              {/* Loading State */}
+
               {isLoading && (
                 <div className="flex items-start gap-4 max-w-4xl mx-auto">
                   <div className="w-8 h-8 rounded-full bg-surface border border-border flex items-center justify-center shrink-0">
                     <Sparkles className="w-4 h-4 text-primary animate-pulse" />
                     <Loader />
+
                   </div>
                   <div className="px-5 py-3 rounded-2xl rounded-tl-none bg-surface border border-border flex items-center gap-2">
                     <span
@@ -2763,7 +2529,7 @@ For "Remix" requests with an attachment, analyze the attached image, then create
         </div>
 
         {/* Input */}
-        < div className="p-2 md:p-4 shrink-0 bg-secondary border-t border-border sm:border-t-0" >
+        <div className="p-2 md:p-4 shrink-0 bg-secondary border-t border-border sm:border-t-0">
           <div className="max-w-4xl mx-auto relative">
 
             {/* File Preview Area */}
@@ -2778,10 +2544,6 @@ For "Remix" requests with an attachment, analyze the attached image, then create
                       {preview.type.startsWith('image/') ? (
                         <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-xl overflow-hidden border border-border/50 bg-black/5">
                           <img src={preview.url} alt="Preview" className="w-full h-full object-cover transition-transform group-hover:scale-105" />
-                        </div>
-                      ) : preview.type.startsWith('video/') ? (
-                        <div className="w-14 h-14 sm:w-16 sm:h-16 bg-red-500/10 rounded-xl flex items-center justify-center border border-red-500/20 shadow-sm">
-                          <Video className="w-7 h-7 text-red-600" />
                         </div>
                       ) : (
                         <div className="w-14 h-14 sm:w-16 sm:h-16 bg-primary/10 rounded-xl flex items-center justify-center border border-primary/20 shadow-sm">
@@ -2841,7 +2603,7 @@ For "Remix" requests with an attachment, analyze the attached image, then create
                 onChange={handleFileSelect}
                 multiple
                 className="hidden"
-                accept="image/*,video/*"
+                accept="image/*"
               />
               <input
                 id="camera-upload"
@@ -2891,7 +2653,7 @@ For "Remix" requests with an attachment, analyze the attached image, then create
                         </label>
                       )}
 
-                      {(getAgentCapabilities(activeAgent.agentName, activeAgent.category).canUploadDocs && (
+                      {getAgentCapabilities(activeAgent.agentName, activeAgent.category).canUploadDocs && (
                         <label
                           htmlFor="drive-upload"
                           onClick={() => setIsAttachMenuOpen(false)}
@@ -2904,43 +2666,35 @@ For "Remix" requests with an attachment, analyze the attached image, then create
                             <span className="text-sm font-medium text-maintext group-hover:text-primary transition-colors">Add from Drive</span>
                           </div>
                         </label>
-                      ))}
+                      )}
 
-                      {/* Deep Search Option */}
                       <button
-                        type="button"
                         onClick={() => {
-                          setIsDeepSearch(true);
-                          if (inputRef.current) inputRef.current.focus();
                           setIsAttachMenuOpen(false);
-                          toast.success("Deep Search Activated");
+                          handleGenerateImage();
                         }}
                         className="w-full text-left px-3 py-2.5 flex items-center gap-3 hover:bg-primary/5 rounded-xl transition-all group cursor-pointer"
                       >
                         <div className="w-8 h-8 rounded-full bg-surface border border-border flex items-center justify-center group-hover:border-primary/30 group-hover:bg-primary/10 transition-colors shrink-0">
-                          <Wand2 className="w-4 h-4 text-subtext group-hover:text-primary transition-colors" />
+                          <ImageIcon className="w-4 h-4 text-subtext group-hover:text-primary transition-colors" />
                         </div>
                         <div className="flex-1">
-                          <span className="text-sm font-medium text-maintext group-hover:text-primary transition-colors">Deep Search</span>
+                          <span className="text-sm font-medium text-maintext group-hover:text-primary transition-colors">Generate Image</span>
                         </div>
                       </button>
 
-                      {/* Image Generation Option */}
                       <button
-                        type="button"
                         onClick={() => {
-                          setIsImageMode(true);
-                          setInputValue('');
-                          if (inputRef.current) inputRef.current.focus();
                           setIsAttachMenuOpen(false);
+                          handleDeepSearch();
                         }}
                         className="w-full text-left px-3 py-2.5 flex items-center gap-3 hover:bg-primary/5 rounded-xl transition-all group cursor-pointer"
                       >
                         <div className="w-8 h-8 rounded-full bg-surface border border-border flex items-center justify-center group-hover:border-primary/30 group-hover:bg-primary/10 transition-colors shrink-0">
-                          <Sparkles className="w-4 h-4 text-subtext group-hover:text-primary transition-colors" />
+                          <Search className="w-4 h-4 text-subtext group-hover:text-primary transition-colors" />
                         </div>
                         <div className="flex-1">
-                          <span className="text-sm font-medium text-maintext group-hover:text-primary transition-colors">Create Image</span>
+                          <span className="text-sm font-medium text-maintext group-hover:text-primary transition-colors">Deep Search</span>
                         </div>
                       </button>
                     </div>
@@ -2951,17 +2705,7 @@ For "Remix" requests with an attachment, analyze the attached image, then create
               <button
                 type="button"
                 ref={attachBtnRef}
-                onClick={() => {
-                  // Show login prompt for guests when they try to upload
-                  if (!isLoggedIn) {
-                    toast.error('Please log in to upload files and images', {
-                      duration: 4000,
-                      icon: '🔒'
-                    });
-                    return;
-                  }
-                  setIsAttachMenuOpen(!isAttachMenuOpen);
-                }}
+                onClick={() => setIsAttachMenuOpen(!isAttachMenuOpen)}
                 className={`p-3 sm:p-4 rounded-full border border-primary bg-primary text-white transition-all duration-300 shadow-lg shadow-primary/20 shrink-0 flex items-center justify-center hover:opacity-90
                   ${isAttachMenuOpen ? 'rotate-45' : ''}`}
                 title="Add to chat"
@@ -2970,52 +2714,20 @@ For "Remix" requests with an attachment, analyze the attached image, then create
               </button>
 
               <div className="relative flex-1">
-                {isImageMode && (
-                  <div
-                    onClick={() => uploadInputRef.current?.click()}
-                    className="absolute left-4 top-3 md:top-4 z-20 flex items-center gap-1.5 bg-blue-500 text-white px-2.5 py-0.5 rounded-lg text-xs font-bold animate-in zoom-in-95 select-none shadow-lg shadow-blue-500/20 cursor-pointer hover:opacity-90 active:scale-95 transition-all"
-                  >
-                    <Sparkles className="w-3 h-3" />
-                    <span>GENERATE IMAGE</span>
-                  </div>
-                )}
-                {isDeepSearch && (
-                  <div className="absolute left-4 top-3 md:top-4 z-20 flex items-center gap-1.5 bg-purple-600 text-white px-2.5 py-0.5 rounded-lg text-xs font-bold animate-in zoom-in-95 select-none shadow-lg shadow-purple-600/20">
-                    <Wand2 className="w-3 h-3" />
-                    <span>DEEP SEARCH</span>
-                  </div>
-                )}
                 <textarea
                   ref={inputRef}
                   value={inputValue}
                   onChange={(e) => {
-                    const val = e.target.value;
-                    // Detect /image command
-                    if (val.toLowerCase().startsWith('/image ') || val.toLowerCase().startsWith('/imagine ')) {
-                      setIsImageMode(true);
-                      setInputValue('');
-                    } else {
-                      setInputValue(val);
-                    }
+                    setInputValue(e.target.value);
                     e.target.style.height = 'auto';
                     e.target.style.height = `${e.target.scrollHeight}px`;
                   }}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Backspace' && inputValue === '' && isImageMode) {
-                      e.preventDefault();
-                      setIsImageMode(false);
-                    }
-                    handleKeyDown(e);
-                  }}
+                  onKeyDown={handleKeyDown}
                   onPaste={handlePaste}
-                  placeholder={isImageMode ? "Describe the image you want to create..." : "Ask AISA..."}
+                  placeholder="Ask AISA..."
                   rows={1}
-                  className={`w-full bg-surface border border-border rounded-2xl py-2 md:py-3 sm:pl-5 text-sm md:text-base text-maintext placeholder-subtext focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary shadow-sm transition-all resize-none overflow-y-auto custom-scrollbar ${inputValue.trim() ? 'pr-20 md:pr-24' : 'pr-32 md:pr-40'}`}
-                  style={{
-                    minHeight: '40px',
-                    maxHeight: '150px',
-                    paddingLeft: isImageMode ? '160px' : (isDeepSearch ? '140px' : '20px')
-                  }}
+                  className={`w-full bg-surface border border-border rounded-2xl py-2 md:py-3 pl-4 sm:pl-5 text-sm md:text-base text-maintext placeholder-subtext focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary shadow-sm transition-all resize-none overflow-y-auto custom-scrollbar ${inputValue.trim() ? 'pr-20 md:pr-24' : 'pr-32 md:pr-40'}`}
+                  style={{ minHeight: '40px', maxHeight: '150px' }}
                 />
                 <div className="absolute right-2 inset-y-0 flex items-center gap-0 sm:gap-1 z-10">
                   {isListening && (
@@ -3088,20 +2800,20 @@ For "Remix" requests with an attachment, analyze the attached image, then create
               </div>
             </form>
           </div>
-        </div >
-      </div >
+        </div>
+      </div>
       {/* Live AI Modal */}
-      < AnimatePresence >
+      <AnimatePresence>
         {isLiveMode && (
           <LiveAI
             onClose={() => setIsLiveMode(false)}
             language={currentLang}
           />
         )}
-      </AnimatePresence >
+      </AnimatePresence>
 
       {/* Feedback Modal */}
-      < Transition appear show={feedbackOpen} as={Fragment}>
+      <Transition appear show={feedbackOpen} as={Fragment}>
         <Dialog as="div" className="relative z-50" onClose={() => setFeedbackOpen(false)}>
           <Transition.Child
             as={Fragment}
@@ -3179,8 +2891,8 @@ For "Remix" requests with an attachment, analyze the attached image, then create
             </div>
           </div>
         </Dialog>
-      </Transition >
-    </div >
+      </Transition>
+    </div>
   );
 };
 

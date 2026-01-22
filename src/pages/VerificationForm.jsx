@@ -20,7 +20,7 @@ export default function VerificationForm() {
         axios.post(apis.emailVerificationApi, { code: verificationCode, email }).then((res) => {
             console.log(res);
             setUserData(res.data)
-            navigator(AppRoute.DASHBOARD)
+            navigator(AppRoute.DASHBOARD, { state: location.state })
 
         }).catch((err) => {
             console.log(err);

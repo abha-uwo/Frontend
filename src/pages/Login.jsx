@@ -29,7 +29,7 @@ const Login = () => {
     axios.post(apis.logIn, payload).then((res) => {
       setError(false)
       setMessage(res.data.message)
-      const from = location.state?.from?.pathname || AppRoute.DASHBOARD;
+      const from = location.state?.from || AppRoute.DASHBOARD;
       navigate(from, { replace: true });
       setUserData(res.data)
       setUserRecoil({ user: res.data })

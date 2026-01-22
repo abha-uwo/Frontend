@@ -1,6 +1,6 @@
 import React from 'react';
 import { X, ExternalLink } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence } from 'motion/react';
 
 const AgentModal = ({ isOpen, onClose, agent }) => {
     if (!isOpen || !agent) return null;

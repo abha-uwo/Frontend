@@ -6,24 +6,64 @@ import {
     Linkedin, Mail, MapPin, Phone, Facebook, Instagram, Youtube, MessageSquare, MessageCircle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { logo, name } from '../constants';
+import { logo, name, faqs } from '../constants';
 import { getUserData } from '../userStore/userData';
 import { AppRoute } from '../types';
-import LandingLiveDemoModal from '../Components/LiveDemo/LandingLiveDemoModal';
-import { useRecoilState } from 'recoil';
-import { demoModalState } from '../userStore/demoStore';
-import SecurityModal from '../Components/LiveDemo/SecurityModal';
-import { FaXTwitter } from "react-icons/fa6";
 import { useTheme } from '../context/ThemeContext';
-import { Sun, Moon } from 'lucide-react';
+import { Sun, Moon, X, ChevronDown, ChevronUp, HelpCircle } from 'lucide-react';
+import axios from 'axios';
+import { apis } from '../types';
+import toast from 'react-hot-toast';
 import { Link } from 'react-router';
+import PrivacyPolicyModal from '../Components/PolicyModals/PrivacyPolicyModal';
+import TermsOfServiceModal from '../Components/PolicyModals/TermsOfServiceModal';
+import CookiePolicyModal from '../Components/PolicyModals/CookiePolicyModal';
 
 const Landing = () => {
     const navigate = useNavigate();
     const user = getUserData();
-    const [demoState, setDemoState] = useRecoilState(demoModalState);
-    const [isSecurityModalOpen, setIsSecurityModalOpen] = useState(false);
     const [isBrandHovered, setIsBrandHovered] = useState(false);
+    const [isFaqOpen, setIsFaqOpen] = useState(false);
+    const [openFaqIndex, setOpenFaqIndex] = useState(null);
+    const [activeTab, setActiveTab] = useState('faq');
+    const [issueType, setIssueType] = useState('General Inquiry');
+    const [issueText, setIssueText] = useState('');
+    const [isSending, setIsSending] = useState(false);
+    const [sendStatus, setSendStatus] = useState(null);
+    const [isPrivacyModalOpen, setIsPrivacyModalOpen] = useState(false);
+    const [isTermsModalOpen, setIsTermsModalOpen] = useState(false);
+    const [isCookieModalOpen, setIsCookieModalOpen] = useState(false);
+
+    const issueOptions = [
+        "General Inquiry",
+        "Payment Issue",
+        "Refund Request",
+        "Technical Support",
+        "Account Access",
+        "Other"
+    ];
+
+    const handleSupportSubmit = async () => {
+        if (!issueText.trim()) return;
+        setIsSending(true);
+        setSendStatus(null);
+        try {
+            await axios.post(apis.support, {
+                email: user?.email || "guest@ai-mall.in",
+                issueType,
+                message: issueText,
+                userId: user?.id || null
+            });
+            setSendStatus('success');
+            setIssueText('');
+            setTimeout(() => setSendStatus(null), 3000);
+        } catch (error) {
+            console.error("Support submission failed", error);
+            setSendStatus('error');
+        } finally {
+            setIsSending(false);
+        }
+    };
     const { theme, setTheme } = useTheme();
     const btnClass = "px-8 py-4 bg-surface border border-border rounded-2xl font-bold text-lg text-maintext hover:bg-secondary transition-all duration-300 flex items-center justify-center gap-2";
 
@@ -299,8 +339,7 @@ const Landing = () => {
                             <h4 className="text-sm font-bold text-maintext uppercase tracking-widest mb-6">Support</h4>
                             <ul className="space-y-4">
                                 {[
-                                    { label: "Help Center", path: "#" },
-                                    { label: "Security & Guidelines", onClick: () => setIsSecurityModalOpen(true) }
+                                    { label: "Help Center", onClick: () => setIsFaqOpen(true) },
                                 ].map((link, i) => (
                                     <li key={i}>
                                         {link.onClick ? (
@@ -339,12 +378,12 @@ const Landing = () => {
                                     </p>
                                 </a>
                                 <a
-                                    href="mailto:support@ai-mall.in"
+                                    href="mailto:admin@uwo24.com"
                                     className="flex items-center gap-3 group"
                                 >
                                     <Mail className="w-5 h-5 text-primary shrink-0 group-hover:scale-110 transition-transform" />
                                     <span className="text-sm text-subtext group-hover:text-primary transition-colors font-medium">
-                                        support@ai-mall.in
+                                        admin@uwo24.com
                                     </span>
                                 </a>
                                 <a
@@ -366,23 +405,140 @@ const Landing = () => {
                             © {new Date().getFullYear()} {name} <sup className="text-xs">TM</sup>. All rights reserved.
                         </p>
                         <div className="flex items-center gap-8">
-                            <a href="#" className="text-xs text-subtext hover:text-maintext transition-colors font-medium">Privacy Policy</a>
-                            <a href="#" className="text-xs text-subtext hover:text-maintext transition-colors font-medium">Terms of Service</a>
-                            <a href="#" className="text-xs text-subtext hover:text-maintext transition-colors font-medium">Cookie Policy</a>
+                            <button onClick={() => setIsPrivacyModalOpen(true)} className="text-xs text-subtext hover:text-maintext transition-colors font-medium">Privacy Policy</button>
+                            <button onClick={() => setIsTermsModalOpen(true)} className="text-xs text-subtext hover:text-maintext transition-colors font-medium">Terms of Service</button>
+                            <button onClick={() => setIsCookieModalOpen(true)} className="text-xs text-subtext hover:text-maintext transition-colors font-medium">Cookie Policy</button>
                         </div>
                     </div>
                 </div>
             </footer>
 
-            <LandingLiveDemoModal
-                isOpen={demoState.isOpen}
-                onClose={() => setDemoState({ ...demoState, isOpen: false })}
-            />
+            {/* FAQ Modal */}
+            {isFaqOpen && (
+                <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+                    <div className="bg-white dark:bg-gray-900 rounded-2xl w-full max-w-2xl max-h-[80vh] overflow-hidden flex flex-col shadow-2xl animate-in fade-in zoom-in duration-200">
+                        <div className="p-6 border-b border-gray-200 dark:border-gray-800 flex justify-between items-center bg-blue-50 dark:bg-gray-800">
+                            <div className="flex gap-4">
+                                <button
+                                    onClick={() => setActiveTab('faq')}
+                                    className={`text-lg font-bold px-4 py-2 rounded-lg transition-colors ${activeTab === 'faq' ? 'bg-blue-600 text-white' : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'}`}
+                                >
+                                    FAQ
+                                </button>
+                                <button
+                                    onClick={() => setActiveTab('help')}
+                                    className={`text-lg font-bold px-4 py-2 rounded-lg transition-colors ${activeTab === 'help' ? 'bg-blue-600 text-white' : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'}`}
+                                >
+                                    Help
+                                </button>
+                            </div>
+                            <button
+                                onClick={() => setIsFaqOpen(false)}
+                                className="p-2 hover:bg-black/5 dark:hover:bg-white/5 rounded-full text-gray-600 dark:text-gray-400 transition-colors"
+                            >
+                                <X className="w-6 h-6" />
+                            </button>
+                        </div>
 
-            <SecurityModal
-                isOpen={isSecurityModalOpen}
-                onClose={() => setIsSecurityModalOpen(false)}
-            />
+                        <div className="flex-1 overflow-y-auto p-6 space-y-4">
+                            {activeTab === 'faq' ? (
+                                <>
+                                    <p className="text-sm text-gray-600 dark:text-gray-400 font-medium">Get quick answers to common questions about our platform</p>
+                                    {faqs.map((faq, index) => (
+                                        <div key={index} className="border border-gray-200 dark:border-gray-800 rounded-xl bg-white dark:bg-gray-900 overflow-hidden hover:border-blue-300 dark:hover:border-blue-700 transition-all">
+                                            <button
+                                                onClick={() => setOpenFaqIndex(openFaqIndex === index ? null : index)}
+                                                className="w-full flex justify-between items-center p-4 text-left hover:bg-blue-50 dark:hover:bg-gray-800 transition-colors focus:outline-none"
+                                            >
+                                                <span className="font-semibold text-gray-900 dark:text-white text-[15px]">{faq.question}</span>
+                                                {openFaqIndex === index ? (
+                                                    <ChevronUp className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                                                ) : (
+                                                    <ChevronDown className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+                                                )}
+                                            </button>
+                                            <div
+                                                className={`overflow-hidden transition-all duration-300 ease-in-out ${openFaqIndex === index ? 'max-h-96 opacity-100 bg-blue-50/50 dark:bg-gray-800/50' : 'max-h-0 opacity-0'}`}
+                                            >
+                                                <div className="p-4 pt-0 text-gray-600 dark:text-gray-400 text-sm leading-relaxed border-t border-gray-200 dark:border-gray-700 mt-2 pt-3">
+                                                    {faq.answer}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </>
+                            ) : (
+                                <div className="flex flex-col gap-6">
+                                    <div>
+                                        <label className="block text-sm font-bold text-gray-900 dark:text-white mb-2">Select Issue Category</label>
+                                        <div className="relative">
+                                            <select
+                                                value={issueType}
+                                                onChange={(e) => setIssueType(e.target.value)}
+                                                className="w-full p-4 pr-10 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 focus:border-blue-600 dark:focus:border-blue-400 outline-none appearance-none text-gray-900 dark:text-white font-medium cursor-pointer hover:border-blue-400 transition-colors"
+                                            >
+                                                {issueOptions.map((opt) => (
+                                                    <option key={opt} value={opt}>{opt}</option>
+                                                ))}
+                                            </select>
+                                            <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500 dark:text-gray-400 pointer-events-none" />
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-bold text-gray-900 dark:text-white mb-2">Describe your issue</label>
+                                        <textarea
+                                            className="w-full p-4 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 focus:border-blue-600 dark:focus:border-blue-400 outline-none resize-none text-gray-900 dark:text-white min-h-[150px]"
+                                            placeholder="Please provide details about the problem you are facing..."
+                                            value={issueText}
+                                            onChange={(e) => setIssueText(e.target.value)}
+                                        />
+                                    </div>
+                                    <button
+                                        onClick={handleSupportSubmit}
+                                        disabled={isSending || !issueText.trim()}
+                                        className={`flex items-center justify-center gap-2 bg-blue-600 text-white py-3 rounded-xl font-bold transition-all shadow-lg shadow-blue-600/20 ${isSending || !issueText.trim() ? 'opacity-50 cursor-not-allowed' : 'hover:opacity-90'}`}
+                                    >
+                                        {isSending ? (
+                                            <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                        ) : (
+                                            <>
+                                                <HelpCircle className="w-5 h-5" />
+                                                Send to Support
+                                            </>
+                                        )}
+                                    </button>
+                                    {sendStatus === 'success' && (
+                                        <div className="p-3 bg-green-500/10 text-green-600 dark:text-green-400 rounded-lg text-sm text-center font-medium border border-green-500/20 animate-in fade-in slide-in-from-top-2">
+                                            Ticket Submitted Successfully! Our team will contact you soon.
+                                        </div>
+                                    )}
+                                    {sendStatus === 'error' && (
+                                        <div className="p-3 bg-red-500/10 text-red-600 dark:text-red-400 rounded-lg text-sm text-center font-medium border border-red-500/20 animate-in fade-in slide-in-from-top-2">
+                                            Failed to submit ticket. Please try again or email us directly.
+                                        </div>
+                                    )}
+                                    <p className="text-xs text-center text-gray-600 dark:text-gray-400">
+                                        Or email us directly at <a href="mailto:support@ai-mall.in" className="text-blue-600 dark:text-blue-400 font-medium hover:underline">support@ai-mall.in</a>
+                                    </p>
+                                </div>
+                            )}
+                        </div>
+                        <div className="p-4 border-t border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-800 text-center">
+                            <button
+                                onClick={() => setIsFaqOpen(false)}
+                                className="px-6 py-2 bg-blue-600 text-white rounded-xl font-bold hover:opacity-90 transition-all shadow-lg shadow-blue-600/20"
+                            >
+                                Close
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            <PrivacyPolicyModal isOpen={isPrivacyModalOpen} onClose={() => setIsPrivacyModalOpen(false)} />
+            <TermsOfServiceModal isOpen={isTermsModalOpen} onClose={() => setIsTermsModalOpen(false)} />
+            <CookiePolicyModal isOpen={isCookieModalOpen} onClose={() => setIsCookieModalOpen(false)} />
+
         </div >
     );
 };

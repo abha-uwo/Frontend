@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router';
+import { useNavigate, Link, useLocation } from 'react-router';
 import { Cpu, Mail, Lock, User, ArrowLeft, AlertCircle } from 'lucide-react';
 import { apiService } from '../services/apiService';
 import { AppRoute, apis } from '../types';
@@ -10,6 +10,7 @@ import { logo } from '../constants';
 
 const Signup = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
@@ -24,7 +25,7 @@ const Signup = () => {
     e.preventDefault();
     axios.post(apis.signUp, payLoad).then((res) => {
       setUserData(res.data)
-      navigate(AppRoute.E_Verification);
+      navigate(AppRoute.E_Verification, { state: location.state });
 
     }).catch((err) => {
       console.log(err);

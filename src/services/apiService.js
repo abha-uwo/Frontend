@@ -1,6 +1,6 @@
 // Generic API service for Dashboard, Automations, Agents, Admin, and Auth
 import axios from "axios";
-import { API } from "../types";
+import { API } from "../types.js";
 
 // Create axios instance with default config
 const apiClient = axios.create({

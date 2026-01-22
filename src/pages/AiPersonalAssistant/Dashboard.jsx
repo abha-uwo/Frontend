@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { apiService } from '../../services/apiService';
 import TaskModal from './TaskModal';
-import { Plus, CheckCircle, Clock, Calendar as CalendarIcon, AlertTriangle, Trash2, Mic, Settings } from 'lucide-react';
+import { Plus, CheckCircle, Clock, Calendar as CalendarIcon, AlertTriangle, Trash2, Mic, Settings, Menu as MenuIcon } from 'lucide-react';
+import { useRecoilState } from 'recoil';
+import { toggleState } from '../../userStore/userData';
 import toast from 'react-hot-toast';
 
 const Dashboard = () => {
@@ -10,6 +12,8 @@ const Dashboard = () => {
     const [editingTask, setEditingTask] = useState(null);
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState('all'); // all, today, pending, completed
+    const [tglState, setTglState] = useRecoilState(toggleState);
+    const toggleSidebar = () => setTglState(prev => ({ ...prev, sidebarOpen: !prev.sidebarOpen }));
 
     const notifiedRef = useRef(new Set());
 
@@ -168,7 +172,14 @@ const Dashboard = () => {
                 {/* Header */}
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
                     <div>
-                        <h1 className="text-xl md:text-2xl font-bold bg-gradient-to-r from-primary to-purple-600 bg-clip-text text-transparent">
+                        <h1 className="text-xl md:text-2xl font-bold bg-gradient-to-r from-primary to-purple-600 bg-clip-text text-transparent flex items-center gap-3">
+                            <button
+                                onClick={toggleSidebar}
+                                className="lg:hidden p-1.5 rounded-lg hover:bg-surface text-subtext transition-colors border border-border/50"
+                                title="Toggle Sidebar"
+                            >
+                                <MenuIcon className="w-5 h-5 text-primary" />
+                            </button>
                             AI Personal Assistant
                         </h1>
                         <p className="text-gray-500 dark:text-gray-400 text-xs md:text-sm">Manage your daily routine & smart reminders</p>

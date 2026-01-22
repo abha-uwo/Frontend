@@ -5,7 +5,6 @@ import {
   User,
   LayoutGrid,
   MessageSquare,
-  ShoppingBag,
   Bot,
   Settings,
   LogOut,
@@ -18,7 +17,11 @@ import {
   DollarSign,
   HelpCircle,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  Plus,
+  Shield,
+  Sparkles,
+  ChevronRight
 } from 'lucide-react';
 import { apis, AppRoute } from '../../types';
 import { faqs } from '../../constants'; // Import shared FAQs
@@ -29,6 +32,9 @@ import axios from 'axios';
 import { useLanguage } from '../../context/LanguageContext';
 import { useTheme } from '../../context/ThemeContext';
 import { Sun, Moon } from 'lucide-react';
+import { chatStorageService } from '../../services/chatStorageService';
+import { useParams } from 'react-router';
+import toast from 'react-hot-toast';
 
 const Sidebar = ({ isOpen, onClose }) => {
   const { t, language, region, regionFlags } = useLanguage();
@@ -50,6 +56,10 @@ const Sidebar = ({ isOpen, onClose }) => {
   const [issueText, setIssueText] = useState("");
   const [activeTab, setActiveTab] = useState("faq");
   const [issueType, setIssueType] = useState("General Inquiry");
+  const [sessions, setSessions] = useState([]);
+  const { sessionId } = useParams();
+  const [currentSessionId, setCurrentSessionId] = useState(sessionId || 'new');
+  const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
 
   const issueOptions = [
     "General Inquiry",
@@ -131,6 +141,56 @@ const Sidebar = ({ isOpen, onClose }) => {
     }
   }, [token])
 
+  // Fetch chat sessions
+  useEffect(() => {
+    const fetchSessions = async () => {
+      const sessionsData = await chatStorageService.getSessions();
+      setSessions(sessionsData);
+    };
+    fetchSessions();
+  }, []);
+
+  // Update currentSessionId when sessionId changes
+  useEffect(() => {
+    setCurrentSessionId(sessionId || 'new');
+  }, [sessionId]);
+
+  const handleNewChat = () => {
+    navigate('/dashboard/chat/new');
+    onClose();
+  };
+
+  const handleDeleteSession = async (e, sessionIdToDelete) => {
+    e.stopPropagation();
+    try {
+      await chatStorageService.deleteSession(sessionIdToDelete);
+      const updatedSessions = await chatStorageService.getSessions();
+      setSessions(updatedSessions);
+      if (currentSessionId === sessionIdToDelete) {
+        navigate('/dashboard/chat/new');
+      }
+    } catch (error) {
+      console.error('Failed to delete session:', error);
+    }
+  };
+
+  // Close profile menu on outside click
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (isProfileMenuOpen && !event.target.closest('.profile-menu-container')) {
+        setIsProfileMenuOpen(false);
+      }
+    };
+
+    if (isProfileMenuOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isProfileMenuOpen]);
+
   if (notifiyTgl.notify) {
     setTimeout(() => {
       setNotifyTgl({ notify: false })
@@ -192,73 +252,206 @@ const Sidebar = ({ isOpen, onClose }) => {
           </button>
         </div>
 
-        {/* Navigation - Chat Removed from Global Sidebar */}
-        <div className="flex-1 px-3 py-2 space-y-1 overflow-y-auto">
-          {/* Dashboard */}
-          <NavLink
-            to={AppRoute.DASHBOARD}
-            className={navItemClass}
-          >
-            <LayoutGrid className="w-5 h-5" />
-            {(isOpen || window.innerWidth >= 1024) && <span>Dashboard</span>}
-          </NavLink>
+        {/* Chat History Section */}
+        <div className="flex-1 flex flex-col overflow-hidden">
+          {/* New Chat Button */}
+          <div className="p-3">
+            <button
+              onClick={handleNewChat}
+              className="w-full bg-primary hover:opacity-90 text-white font-semibold py-2.5 px-3 rounded-xl flex items-center justify-center gap-2 transition-colors shadow-lg shadow-primary/20 text-sm"
+            >
+              <Plus className="w-4 h-4" /> New Chat
+            </button>
+          </div>
 
-          {/* Marketplace */}
-          <NavLink
-            to={AppRoute.MARKETPLACE}
-            className={navItemClass}
-          >
-            <ShoppingBag className="w-5 h-5" />
-            {(isOpen || window.innerWidth >= 1024) && <span>Marketplace</span>}
-          </NavLink>
+          {/* Chat Sessions List */}
+          <div className="flex-1 overflow-y-auto px-2 space-y-1">
+            <h3 className="px-4 py-2 text-xs font-semibold text-subtext uppercase tracking-wider">
+              Recent
+            </h3>
 
-          {/* Chat - Disabled as per previous removal? Or should I add it? 
-             "Chat Removed from Global Sidebar" comment suggests avoiding it, 
-             but typically users want access. The old code had it. 
-             Current comment says "Chat Removed...". I will respect that for now based on comment. 
-          */}
+            {sessions.map((session) => (
+              <div key={session.sessionId} className="group relative px-2">
+                <button
+                  onClick={() => {
+                    navigate(`/dashboard/chat/${session.sessionId}`);
+                    onClose();
+                  }}
+                  className={`w-full text-left px-4 py-3 rounded-lg text-sm transition-colors truncate
+                    ${currentSessionId === session.sessionId
+                      ? 'bg-card text-primary shadow-sm border border-border'
+                      : 'text-subtext hover:bg-card hover:text-maintext'
+                    }
+                  `}
+                >
+                  <div className="font-medium truncate pr-6">{session.title}</div>
+                  <div className="text-[10px] text-subtext/70">
+                    {new Date(session.lastModified).toLocaleDateString()}
+                  </div>
+                </button>
+                <button
+                  onClick={(e) => handleDeleteSession(e, session.sessionId)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 p-1.5 text-subtext hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                  title="Delete Chat"
+                >
+                  <Plus className="w-4 h-4 rotate-45" />
+                </button>
+              </div>
+            ))}
+
+            {sessions.length === 0 && (
+              <div className="px-4 text-xs text-subtext italic">No recent chats</div>
+            )}
+          </div>
         </div>
 
 
         {/* User Profile Footer */}
         <div className="p-3 border-t border-border bg-secondary/30 relative">
           {token ? (
-            /* Integrated Profile Card */
-            <div
-              onClick={() => {
-                navigate(AppRoute.PROFILE);
-                onClose();
-              }}
-              className="rounded-xl border border-transparent hover:bg-secondary transition-all cursor-pointer flex items-center gap-2 p-2 group"
-            >
-              <div className="w-9 h-9 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-xs uppercase shrink-0 overflow-hidden border border-primary/10 group-hover:bg-primary/30 transition-colors">
-                {user.avatar ? (
-                  <img
-                    src={user.avatar}
-                    alt={user.name}
-                    className="w-full h-full object-cover"
-                    onError={(e) => {
-                      e.target.style.display = 'none';
-                      const parent = e.target.parentElement;
-                      if (parent) {
-                        parent.classList.add("flex", "items-center", "justify-center");
-                        parent.innerText = user.name ? user.name.charAt(0).toUpperCase() : "U";
-                      }
-                    }}
-                  />
-                ) : (
-                  user.name ? user.name.charAt(0).toUpperCase() : "U"
-                )}
-              </div>
+            <div className="relative profile-menu-container">
+              {/* Profile Card - Clickable */}
+              <button
+                onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
+                className="w-full rounded-xl border border-transparent hover:bg-secondary transition-all flex items-center gap-2 p-2 group"
+              >
+                <div className="w-9 h-9 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-xs uppercase shrink-0 overflow-hidden border border-primary/10 group-hover:bg-primary/30 transition-colors">
+                  {user.avatar ? (
+                    <img
+                      src={user.avatar}
+                      alt={user.name}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        e.target.style.display = 'none';
+                        const parent = e.target.parentElement;
+                        if (parent) {
+                          parent.classList.add("flex", "items-center", "justify-center");
+                          parent.innerText = user.name ? user.name.charAt(0).toUpperCase() : "U";
+                        }
+                      }}
+                    />
+                  ) : (
+                    user.name ? user.name.charAt(0).toUpperCase() : "U"
+                  )}
+                </div>
 
-              <div className="flex-1 min-w-0 text-left">
-                <p className="text-sm font-bold text-maintext truncate group-hover:text-primary transition-colors">{user.name}</p>
-                <p className="text-[11px] text-subtext truncate">{user.email}</p>
-              </div>
+                <div className="flex-1 min-w-0 text-left">
+                  <p className="text-sm font-bold text-maintext truncate group-hover:text-primary transition-colors">{user.name}</p>
+                  <p className="text-[11px] text-subtext truncate">{user.email}</p>
+                </div>
 
-              <div className="text-subtext group-hover:text-primary transition-colors">
-                <User className="w-4 h-4" />
-              </div>
+                <div className="text-subtext group-hover:text-primary transition-colors">
+                  <User className="w-4 h-4" />
+                </div>
+              </button>
+
+              {/* Dropdown Menu */}
+              {isProfileMenuOpen && (
+                <div className="absolute bottom-full left-0 right-0 mb-2 bg-card border border-border rounded-xl shadow-xl overflow-hidden z-50">
+                  {/* User Info Header */}
+                  <div className="p-3 border-b border-border bg-secondary/50">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-sm uppercase shrink-0">
+                        {user.name ? user.name.charAt(0).toUpperCase() : "U"}
+                      </div>
+                      <div className="overflow-hidden flex-1">
+                        <p className="text-sm font-bold text-maintext truncate">{user.name}</p>
+                        <p className="text-xs text-subtext truncate">@{user.email?.split('@')[0]}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Menu Items */}
+                  <div className="p-1">
+                    <button
+                      onClick={() => {
+                        toast('Upgrade plan coming soon!');
+                        setIsProfileMenuOpen(false);
+                      }}
+                      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors text-maintext hover:bg-secondary group"
+                    >
+                      <Sparkles className="w-4 h-4 text-subtext group-hover:text-primary" />
+                      <span className="flex-1 text-left">Upgrade plan</span>
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        navigate(AppRoute.PROFILE, { state: { activeTab: 'personalization' } });
+                        setIsProfileMenuOpen(false);
+                        onClose();
+                      }}
+                      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors text-maintext hover:bg-secondary group"
+                    >
+                      <User className="w-4 h-4 text-subtext group-hover:text-primary" />
+                      <span className="flex-1 text-left">Personalization</span>
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        navigate(AppRoute.PROFILE, { state: { activeTab: 'general' } });
+                        setIsProfileMenuOpen(false);
+                        onClose();
+                      }}
+                      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors text-maintext hover:bg-secondary group"
+                    >
+                      <LayoutGrid className="w-4 h-4 text-subtext group-hover:text-primary" />
+                      <span className="flex-1 text-left">General</span>
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        navigate(AppRoute.PROFILE, { state: { activeTab: 'notifications' } });
+                        setIsProfileMenuOpen(false);
+                        onClose();
+                      }}
+                      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors text-maintext hover:bg-secondary group"
+                    >
+                      <Bell className="w-4 h-4 text-subtext group-hover:text-primary" />
+                      <span className="flex-1 text-left">Notifications</span>
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        navigate(AppRoute.PROFILE, { state: { activeTab: 'security' } });
+                        setIsProfileMenuOpen(false);
+                        onClose();
+                      }}
+                      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors text-maintext hover:bg-secondary group"
+                    >
+                      <Shield className="w-4 h-4 text-subtext group-hover:text-primary" />
+                      <span className="flex-1 text-left">Security</span>
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        setIsFaqOpen(true);
+                        setIsProfileMenuOpen(false);
+                      }}
+                      className="w-full flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors text-maintext hover:bg-secondary group"
+                    >
+                      <div className="flex items-center gap-3">
+                        <HelpCircle className="w-4 h-4 text-subtext group-hover:text-primary" />
+                        <span>Help</span>
+                      </div>
+                      <ChevronRight className="w-3 h-3 text-subtext" />
+                    </button>
+                  </div>
+
+                  {/* Logout */}
+                  <div className="border-t border-border p-1">
+                    <button
+                      onClick={() => {
+                        handleLogout();
+                        setIsProfileMenuOpen(false);
+                      }}
+                      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors text-red-500 hover:bg-red-500/5 group"
+                    >
+                      <LogOut className="w-4 h-4" />
+                      <span className="flex-1 text-left">Log out</span>
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           ) : (
             /* Guest / Login State */
