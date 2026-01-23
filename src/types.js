@@ -73,12 +73,15 @@ const apis = {
   resetPasswordEmail: `${API}/auth/reset-password-email`,
   feedback: `${API}/feedback`,
   synthesizeVoice: `${API}/voice/synthesize`,
-  createOrder: `${API}/payments/create-order`,
-  verifyPayment: `${API}/payments/verify`,
+  payment: `${API}/payment`,
+  createOrder: `${API}/payment/create-order`,
+  verifyPayment: `${API}/payment/verify-payment`,
+  getPaymentHistory: `${API}/payment/history`,
   logIn: `${API}/auth/login`,
   signUp: `${API}/auth/signup`,
   forgotPassword: `${API}/auth/forgot-password`,
   emailVerificationApi: `${API}/auth/verify-email`,
+  resendCode: `${API}/auth/resend-code`,
 };
 
 export { API, apis };

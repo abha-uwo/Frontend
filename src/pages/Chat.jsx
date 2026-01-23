@@ -8,6 +8,7 @@ import { Menu, Transition, Dialog } from '@headlessui/react';
 import { generateChatResponse } from '../services/geminiService';
 import { chatStorageService } from '../services/chatStorageService';
 import { useLanguage } from '../context/LanguageContext';
+import { useRecoilState } from 'recoil';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import Loader from '../Components/Loader/Loader';
@@ -21,7 +22,7 @@ import { apis } from '../types';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
 import { detectMode, getModeName, getModeIcon, getModeColor, MODES } from '../utils/modeDetection';
-import { getUserData } from '../userStore/userData';
+import { getUserData, sessionsData } from '../userStore/userData';
 import { usePersonalization } from '../context/PersonalizationContext';
 
 
@@ -89,7 +90,7 @@ const Chat = () => {
   const [messages, setMessages] = useState([]);
   const [excelHTML, setExcelHTML] = useState(null);
   const [textPreview, setTextPreview] = useState(null);
-  const [sessions, setSessions] = useState([]);
+  const [sessions, setSessions] = useRecoilState(sessionsData);
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
@@ -475,7 +476,7 @@ const Chat = () => {
       }
     };
     loadSessions();
-  }, [messages]);
+  }, [messages, setSessions]);
 
   const isNavigatingRef = useRef(false);
 
@@ -790,6 +791,9 @@ ${deepSearchActive ? `### DEEP SEARCH MODE ENABLED (CRITICAL):
         } else if (aiResponseData && typeof aiResponseData === 'object') {
           aiResponseText = aiResponseData.reply || "No response generated.";
           conversionData = aiResponseData.conversion || null;
+          // Extract media URLs if present
+          if (aiResponseData.videoUrl) modelMsg.videoUrl = aiResponseData.videoUrl;
+          if (aiResponseData.imageUrl) modelMsg.imageUrl = aiResponseData.imageUrl;
         } else {
           aiResponseText = "No response generated.";
         }
@@ -2146,7 +2150,7 @@ For "Remix" requests with an attachment, analyze the attached image, then create
                     >
 
                       {/* Attachment Display */}
-                      {(msg.attachments || msg.attachment) && (
+                      {((msg.attachments && msg.attachments.length > 0) || msg.attachment) && (
                         <div className="flex flex-col gap-3 mb-3 mt-1">
                           {(msg.attachments || (msg.attachment ? [msg.attachment] : [])).map((att, idx) => (
                             <div key={idx} className="w-full">
