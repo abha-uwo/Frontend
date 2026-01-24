@@ -270,7 +270,7 @@ const Landing = () => {
             <footer className="w-full bg-white/40 dark:bg-black/40 border-t border-white/20 dark:border-white/10 mt-20 relative z-10 backdrop-blur-xl rounded-t-[3rem] shadow-[0_-10px_40px_-15px_rgba(0,0,0,0.1)] overflow-hidden">
                 <div className="absolute inset-0 bg-gradient-to-t from-blue-50/50 to-transparent dark:from-blue-900/10 pointer-events-none" />
                 <div className="max-w-6xl mx-auto px-6 pt-20 pb-10 relative z-10">
-                    <div className="flex flex-col lg:flex-row justify-between gap-10 mb-16">
+                    <div className="flex flex-col lg:flex-row justify-start gap-20 mb-16">
                         {/* Brand Column */}
                         <div className="space-y-6 max-w-sm">
                             <div className="flex items-center gap-3">

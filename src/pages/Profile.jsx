@@ -384,6 +384,24 @@ const Profile = () => {
                     </div>
                 </div>
 
+                {/* Stats Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    {stats.map((stat, index) => (
+                        <motion.div
+                            key={stat.label}
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: index * 0.1 }}
+                            onClick={() => stat.clickable && setTglState(prev => ({ ...prev, platformSubTgl: true }))}
+                            className={`bg-card border border-border p-6 rounded-3xl shadow-sm hover:shadow-md transition-all group ${stat.clickable ? 'cursor-pointer' : ''}`}
+                        >
+                            <div className={`w-10 h-10 ${stat.color} rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform`}><stat.icon className="w-5 h-5" /></div>
+                            <p className="text-xs font-bold text-subtext uppercase tracking-widest mb-1">{stat.label}</p>
+                            <div className="text-xl font-black text-maintext">{stat.value}</div>
+                        </motion.div>
+                    ))}
+                </div>
+
 
 
                 {/* Account Details & Settings */}
@@ -550,6 +568,10 @@ const Profile = () => {
                         <div className="space-y-6">
                             <h2 className="text-xl font-bold text-maintext flex items-center gap-2"><Lock className="w-5 h-5 text-green-500" />{t.securityStatus}</h2>
                             <div className="space-y-4">
+                                <div className="flex items-center gap-4 p-4 bg-green-500/5 border border-border rounded-2xl">
+                                    <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                                    <p className="text-sm font-bold text-green-700">{t.accountSecure || 'Account Secure'}</p>
+                                </div>
 
                                 <button onClick={() => setShowPasswordModal(true)} className="w-full p-4 bg-secondary/50 rounded-2xl border border-border hover:bg-secondary transition-colors text-left group">
                                     <p className="text-xs text-subtext mb-1">Password</p>

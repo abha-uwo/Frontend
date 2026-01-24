@@ -795,6 +795,8 @@ ${deepSearchActive ? `### DEEP SEARCH MODE ENABLED (CRITICAL):
         // Handle response - could be string (old format) or object (new format with conversion)
         let aiResponseText = '';
         let conversionData = null;
+        let aiVideoUrl = null;
+        let aiImageUrl = null;
 
         if (typeof aiResponseData === 'string') {
           aiResponseText = aiResponseData;
@@ -802,8 +804,8 @@ ${deepSearchActive ? `### DEEP SEARCH MODE ENABLED (CRITICAL):
           aiResponseText = aiResponseData.reply || "No response generated.";
           conversionData = aiResponseData.conversion || null;
           // Extract media URLs if present
-          if (aiResponseData.videoUrl) modelMsg.videoUrl = aiResponseData.videoUrl;
-          if (aiResponseData.imageUrl) modelMsg.imageUrl = aiResponseData.imageUrl;
+          aiVideoUrl = aiResponseData.videoUrl || null;
+          aiImageUrl = aiResponseData.imageUrl || null;
         } else {
           aiResponseText = "No response generated.";
         }
@@ -865,11 +867,12 @@ ${deepSearchActive ? `### DEEP SEARCH MODE ENABLED (CRITICAL):
 
           setTypingMessageId(null); // Clear typing status
 
-          // Add conversion data if available
+          // Add conversion data and media if available
           const finalModelMsg = { ...modelMsg, content: partContent };
-          if (conversionData && i === 0) {
-            // Attach conversion data to first message
-            finalModelMsg.conversion = conversionData;
+          if (i === 0) {
+            if (conversionData) finalModelMsg.conversion = conversionData;
+            if (aiVideoUrl) finalModelMsg.videoUrl = aiVideoUrl;
+            if (aiImageUrl) finalModelMsg.imageUrl = aiImageUrl;
           }
 
           // After typing is complete, save the full message to history
