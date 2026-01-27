@@ -1,37 +1,36 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect } from 'react';
+import { usePersonalization } from './PersonalizationContext';
 
 const ThemeContext = createContext();
 
+const ACCENT_COLORS = {
+    'Default': '240 100% 67%',
+    'Blue': '217 91% 60%',
+    'Green': '142 71% 45%',
+    'Purple': '262 83% 58%',
+    'Orange': '24 95% 53%',
+    'Pink': '330 81% 60%',
+    'Red': '0 84% 60%'
+};
+
+const ACCENT_RINGS = {
+    'Default': '240 100% 67%',
+    'Blue': '217 91% 60%',
+    'Green': '142 71% 45%',
+    'Purple': '262 83% 58%',
+    'Orange': '24 95% 53%',
+    'Pink': '330 81% 60%',
+    'Red': '0 84% 60%'
+};
+
 export const ThemeProvider = ({ children }) => {
-    const [theme, setTheme] = useState(() => {
-        const saved = localStorage.getItem('app_theme');
-        return saved || 'light';
-    });
+    const { personalizations, updatePersonalization } = usePersonalization();
 
-    const [accentColor, setAccentColor] = useState(() => {
-        return localStorage.getItem('app_accent') || 'Default';
-    });
+    const theme = personalizations?.general?.theme || 'System';
+    const accentColor = personalizations?.general?.accentColor || 'Default';
 
-    // Default: Blue (240 100% 67%)
-    const ACCENT_COLORS = {
-        'Default': '240 100% 67%',
-        'Blue': '217 91% 60%',
-        'Green': '142 71% 45%',
-        'Purple': '262 83% 58%',
-        'Orange': '24 95% 53%',
-        'Pink': '330 81% 60%',
-        'Red': '0 84% 60%'
-    };
-
-    const ACCENT_RINGS = {
-        'Default': '240 100% 67%',
-        'Blue': '217 91% 60%',
-        'Green': '142 71% 45%',
-        'Purple': '262 83% 58%',
-        'Orange': '24 95% 53%',
-        'Pink': '330 81% 60%',
-        'Red': '0 84% 60%'
-    };
+    const setTheme = (val) => updatePersonalization('general', { theme: val });
+    const setAccentColor = (val) => updatePersonalization('general', { accentColor: val });
 
     useEffect(() => {
         const root = window.document.documentElement;

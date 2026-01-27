@@ -1,18 +1,17 @@
-import React, { createContext, useState, useContext, useEffect } from 'react';
+import React, { createContext, useContext } from 'react';
+import { usePersonalization } from './PersonalizationContext';
 
 const LanguageContext = createContext();
 
 export const LanguageProvider = ({ children }) => {
-    const [region, setRegion] = useState(localStorage.getItem('user-region') || 'India');
-    const [language, setLanguage] = useState(localStorage.getItem('user-language') || 'English');
+    const { personalizations, updatePersonalization } = usePersonalization();
 
-    useEffect(() => {
-        localStorage.setItem('user-region', region);
-    }, [region]);
+    // Single Source of Truth from PersonalizationContext
+    const language = personalizations?.general?.language || 'English';
+    const region = personalizations?.general?.region || 'India';
 
-    useEffect(() => {
-        localStorage.setItem('user-language', language);
-    }, [language]);
+    const setLanguage = (lang) => updatePersonalization('general', { language: lang });
+    const setRegion = (reg) => updatePersonalization('general', { region: reg });
 
     const regions = {
         'India': ["English", "Hindi", "Bengali", "Marathi", "Telugu", "Tamil", "Kannada", "Malayalam", "Urdu"],
@@ -165,7 +164,69 @@ export const LanguageProvider = ({ children }) => {
             twoFactor: "Two-Factor Authentication",
             enabled: "Enabled",
             manage: "Manage",
-            signOut: "Sign Out from Device"
+            signOut: "Sign Out from Device",
+            logIn: "Log In",
+            selectIssueCategory: "Select Issue Category",
+            describeYourIssue: "Describe your issue",
+            issuePlaceholder: "Please provide details about the problem you are facing...",
+            submitSupport: "Submit Support",
+            successOwned: "Successfully Owned",
+            newChat: "New Chat",
+            history: "History",
+            aiPersonalAssistant: "AI Personal Assistant",
+            manageDailyRoutine: "Manage your daily routine & smart reminders",
+            newTask: "New Task",
+            todayTasks: "Today's Tasks",
+            pending: "Pending",
+            completed: "Completed",
+            totalRoutines: "Total Routines",
+            all: "All",
+            today: "Today",
+            noTasksFound: "No tasks found",
+            addFirstTask: "Add a new task to get started.",
+            editTask: "Edit Task",
+            title: "Title",
+            description: "Description",
+            date: "Date",
+            time: "Time",
+            category: "Category",
+            repeat: "Repeat",
+            noRepeat: "No Repeat",
+            daily: "Daily",
+            weekly: "Weekly",
+            monthly: "Monthly",
+            yearly: "Yearly",
+            urgentMode: "Urgent Mode (Persistent Alarm)",
+            saveTask: "Save Task",
+            Personal: "Personal",
+            Work: "Work",
+            Office: "Office",
+            Meeting: "Meeting",
+            Health: "Health",
+            Education: "Education",
+            Finance: "Finance",
+            Shopping: "Shopping",
+            Traveling: "Traveling",
+            welcomeMessage: "Hello! I’m AISA, your Artificial Intelligence Super Assistant.",
+            switchedTo: "Switched to",
+            heroTitle: "The Future of Conversational AI",
+            heroSubtitle: "Experience the next generation of intelligent assistance. AISA ™ learns, adapts, and creates with you in real-time through a stunning interface.",
+            startNow: "Start Now",
+            privacyTitle: "Privacy First",
+            privacyDesc: "Your data is yours. End-to-end encryption for all conversations.",
+            intelligenceTitle: "Next-Gen Intelligence",
+            intelligenceDesc: "Powered by the most advanced neural networks for human-like reasoning.",
+            interactionTitle: "Natural Interaction",
+            interactionDesc: "Voice, text, or files—interact in the way that feels most natural.",
+            support: "Support",
+            contact: "Contact",
+            city: "Jabalpur, Madhya Pradesh",
+            allRightsReserved: "All rights reserved.",
+            privacyPolicy: "Privacy Policy",
+            termsOfService: "Terms of Service",
+            cookiePolicy: "Cookie Policy",
+            helpCenter: "Help Center",
+            aboutAisa: "About AISA"
         },
         "Hindi": {
             displayLanguage: "प्रदर्शित भाषा",
@@ -190,7 +251,69 @@ export const LanguageProvider = ({ children }) => {
             twoFactor: "दो-चरणीय प्रमाणीकरण",
             enabled: "सक्षम",
             manage: "प्रबंधित करें",
-            signOut: "साइन आउट करें"
+            signOut: "साइन आउट",
+            logIn: "लॉग इन",
+            selectIssueCategory: "समस्या श्रेणी चुनें",
+            describeYourIssue: "अपनी समस्या का वर्णन करें",
+            issuePlaceholder: "कृपया उस समस्या के बारे में विवरण प्रदान करें जिसका आप सामना कर रहे हैं...",
+            submitSupport: "सपोर्ट जमा करें",
+            successOwned: "सफलतापूर्वक स्वामित्व में",
+            newChat: "नई चैट",
+            history: "इतिहास",
+            aiPersonalAssistant: "एआई पर्सनल असिस्टेंट",
+            manageDailyRoutine: "अपनी दैनिक दिनचर्या और स्मार्ट रिमाइंडर प्रबंधित करें",
+            newTask: "नया कार्य",
+            todayTasks: "आज के कार्य",
+            pending: "लंबित",
+            completed: "पूरा हुआ",
+            totalRoutines: "कुल दिनचर्या",
+            all: "सभी",
+            today: "आज",
+            noTasksFound: "कोई कार्य नहीं मिला",
+            addFirstTask: "शुरू करने के लिए एक नया कार्य जोड़ें.",
+            editTask: "कार्य संपादित करें",
+            title: "शीर्षक",
+            description: "विवरण",
+            date: "तारीख",
+            time: "समय",
+            category: "श्रेणी",
+            repeat: "दोहराएं",
+            noRepeat: "दोहराएं नहीं",
+            daily: "दैनिक",
+            weekly: "साप्ताहिक",
+            monthly: "मासिक",
+            yearly: "वार्षिक",
+            urgentMode: "अर्जेंट मोड (लगातार अलार्म)",
+            saveTask: "कार्य सहेजें",
+            Personal: "व्यक्तिगत",
+            Work: "कार्य",
+            Office: "कार्यालय",
+            Meeting: "बैठक",
+            Health: "स्वास्थ्य",
+            Education: "शिक्षा",
+            Finance: "वित्त",
+            Shopping: "खरीदारी",
+            Traveling: "यात्रा",
+            welcomeMessage: "नमस्ते! मैं एआईजी है, आपका आर्टिफिशियल इंटेलिजेंस सुपर असिस्टेंट।",
+            switchedTo: "पर स्विच किया गया",
+            heroTitle: "संवाదాत्मक एआई का भविष्य",
+            heroSubtitle: "इंटेलिजेंट सहायता की अगली पीढ़ी का अनुभव करें। एआईजी ™ एक शानदार इंटरफ़ेस के माध्यम से वास्तविक समय में आपके साथ सीखता है, अनुकूलित होता है और बनाता है।",
+            startNow: "अभी शुरू करें",
+            privacyTitle: "गोपनीयता पहले",
+            privacyDesc: "आपका डेटा आपका है। सभी बातचीत के लिए एंड-टू-एंड एन्क्रिप्शन।",
+            intelligenceTitle: "अगली पीढ़ी की बुद्धिमत्ता",
+            intelligenceDesc: "मानव जैसी तर्कशक्ति के लिए सबसे उन्नत तंत्रिका नेटवर्क द्वारा संचालित।",
+            interactionTitle: "प्राकृतिक संपर्क",
+            interactionDesc: "आवाज, पाठ या फाइलें—उस तरह से बातचीत करें जो सबसे प्राकृतिक लगे।",
+            support: "सहायता",
+            contact: "संपर्क",
+            city: "जबलपुर, मध्य प्रदेश",
+            allRightsReserved: "सर्वाधिकार सुरक्षित।",
+            privacyPolicy: "गोपनीयता नीति",
+            termsOfService: "सेवा की शर्तें",
+            cookiePolicy: "कुकी नीति",
+            helpCenter: "सहायता केंद्र",
+            aboutAisa: "AISA के बारे में"
         },
         "Spanish": {
             displayLanguage: "Idioma de pantalla",

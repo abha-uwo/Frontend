@@ -19,8 +19,10 @@ import PrivacyPolicyModal from '../Components/PolicyModals/PrivacyPolicyModal';
 import TermsOfServiceModal from '../Components/PolicyModals/TermsOfServiceModal';
 import CookiePolicyModal from '../Components/PolicyModals/CookiePolicyModal';
 import AboutAISA from '../Components/AboutAISA';
+import { useLanguage } from '../context/LanguageContext';
 
 const Landing = () => {
+    const { t } = useLanguage();
     const navigate = useNavigate();
     const user = getUserData();
     const [isBrandHovered, setIsBrandHovered] = useState(false);
@@ -120,7 +122,7 @@ const Landing = () => {
                         className="hidden md:flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold text-subtext hover:bg-secondary hover:text-primary transition-all"
                     >
                         <Bot className="w-4 h-4" />
-                        About AISA
+                        {/* About AISA */}
                     </button>
 
                     {/* Theme Toggle */}
@@ -171,14 +173,7 @@ const Landing = () => {
                     transition={{ delay: 0.1 }}
                     className="text-5xl md:text-7xl font-extrabold tracking-tight mb-6 leading-tight text-maintext"
                 >
-                    The Future of <br />
-                    <motion.span
-                        animate={{ backgroundPosition: ["0% 50%", "100% 50%", "0% 50%"] }}
-                        transition={{ duration: 5, repeat: Infinity, ease: "linear" }}
-                        className="bg-gradient-to-r from-blue-600 via-purple-600 to-blue-600 dark:from-blue-400 dark:via-purple-400 dark:to-blue-400 bg-[length:200%_auto] bg-clip-text text-transparent inline-block"
-                    >
-                        Conversational AI
-                    </motion.span>
+                    {t('heroTitle')}
                 </motion.h1>
 
                 <motion.p
@@ -187,8 +182,7 @@ const Landing = () => {
                     transition={{ delay: 0.2 }}
                     className="text-lg text-subtext max-w-2xl mb-10 leading-relaxed"
                 >
-                    Experience the next generation of intelligent assistance.
-                    {name} <sup className="text-xs">TM</sup> learns, adapts, and creates with you in real-time through a stunning interface.
+                    {t('heroSubtitle')}
                 </motion.p>
 
                 <motion.div
@@ -204,7 +198,7 @@ const Landing = () => {
                         onClick={() => navigate("/dashboard/chat/new")}
                         className="px-8 py-4 bg-primary rounded-2xl font-bold text-lg text-white shadow-xl shadow-primary/30 hover:translate-y-[-2px] transition-all duration-300 flex items-center justify-center gap-2"
                     >
-                        Start Now <ArrowRight className="w-5 h-5" />
+                        {t('startNow')} <ArrowRight className="w-5 h-5" />
                     </motion.button>
 
                     {!user && (
@@ -223,21 +217,21 @@ const Landing = () => {
                 <div className="mt-24 grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl w-full text-left">
                     {[
                         {
-                            title: "Contextual Intelligence",
-                            desc: "AISA understands context, remembers interactions, and handles complex reasoning with ease.",
-                            img: "/feature-icons/brain.png",
+                            title: t('intelligenceTitle'),
+                            desc: t('intelligenceDesc'),
+                            img: "/logo/Intelligence.svg",
                             delay: 0
                         },
                         {
-                            title: "Multimodal Interaction",
-                            desc: "Seamlessly interact via text, voice, and vision for a truly natural and fluid experience.",
-                            img: "/feature-icons/sound.png",
+                            title: t('interactionTitle'),
+                            desc: t('interactionDesc'),
+                            img: "/logo/Interaction.svg",
                             delay: 0.2
                         },
                         {
-                            title: "Private & Secure",
-                            desc: "Your data is yours. End-to-end encryption ensures complete privacy and control.",
-                            img: "/feature-icons/shield.png",
+                            title: t('privacyTitle'),
+                            desc: t('privacyDesc'),
+                            img: "/logo/Privacy.svg",
                             delay: 0.4
                         }
                     ].map((feature, i) => (
@@ -327,11 +321,11 @@ const Landing = () => {
 
                         {/* Support Column */}
                         <div>
-                            <h4 className="text-sm font-bold text-maintext uppercase tracking-widest mb-6">Support</h4>
+                            <h4 className="text-sm font-bold text-maintext uppercase tracking-widest mb-6">{t('support')}</h4>
                             <ul className="space-y-4">
                                 {[
-                                    { label: "Help Center", onClick: () => setIsFaqOpen(true) },
-                                    { label: "About AISA", onClick: () => setIsAboutModalOpen(true) },
+                                    { label: t('helpCenter'), onClick: () => setIsFaqOpen(true) },
+                                    { label: t('aboutAisa'), onClick: () => setIsAboutModalOpen(true) },
                                 ].map((link, i) => (
                                     <li key={i}>
                                         {link.onClick ? (
@@ -356,7 +350,7 @@ const Landing = () => {
 
                         {/* Contact Column */}
                         <div className="space-y-6">
-                            <h4 className="text-sm font-bold text-maintext uppercase tracking-widest mb-6">Contact</h4>
+                            <h4 className="text-sm font-bold text-maintext uppercase tracking-widest mb-6">{t('contact')}</h4>
                             <div className="space-y-4">
                                 <a
                                     href="https://www.google.com/maps/search/?api=1&query=Jabalpur+Madhya+Pradesh"
@@ -366,7 +360,7 @@ const Landing = () => {
                                 >
                                     <MapPin className="w-5 h-5 text-primary mt-0.5 shrink-0 group-hover:scale-110 transition-transform" />
                                     <p className="text-sm text-subtext leading-relaxed group-hover:text-primary transition-colors">
-                                        Jabalpur, Madhya Pradesh
+                                        {t('city')}
                                     </p>
                                 </a>
                                 <a
@@ -394,12 +388,12 @@ const Landing = () => {
                     {/* Bottom Bar */}
                     <div className="pt-10 border-t border-border flex flex-col md:flex-row items-center justify-between gap-6">
                         <p className="text-xs text-subtext font-medium">
-                            © {new Date().getFullYear()} {name} <sup className="text-xs">TM</sup>. All rights reserved.
+                            © {new Date().getFullYear()} {name} <sup className="text-xs">TM</sup>. {t('allRightsReserved')}
                         </p>
                         <div className="flex items-center gap-8">
-                            <button onClick={() => setIsPrivacyModalOpen(true)} className="text-xs text-subtext hover:text-maintext transition-colors font-medium">Privacy Policy</button>
-                            <button onClick={() => setIsTermsModalOpen(true)} className="text-xs text-subtext hover:text-maintext transition-colors font-medium">Terms of Service</button>
-                            <button onClick={() => setIsCookieModalOpen(true)} className="text-xs text-subtext hover:text-maintext transition-colors font-medium">Cookie Policy</button>
+                            <button onClick={() => setIsPrivacyModalOpen(true)} className="text-xs text-subtext hover:text-maintext transition-colors font-medium">{t('privacyPolicy')}</button>
+                            <button onClick={() => setIsTermsModalOpen(true)} className="text-xs text-subtext hover:text-maintext transition-colors font-medium">{t('termsOfService')}</button>
+                            <button onClick={() => setIsCookieModalOpen(true)} className="text-xs text-subtext hover:text-maintext transition-colors font-medium">{t('cookiePolicy')}</button>
                         </div>
                     </div>
                 </div>

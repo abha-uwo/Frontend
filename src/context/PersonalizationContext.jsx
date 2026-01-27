@@ -9,6 +9,7 @@ const PersonalizationContext = createContext();
 const DEFAULT_PREFERENCES = {
     general: {
         language: 'English',
+        region: 'India',
         theme: 'System',
         responseSpeed: 'Balanced',
         screenReader: false,
@@ -160,16 +161,18 @@ export const PersonalizationProvider = ({ children }) => {
     }, [user?.token]);
 
     const updatePersonalization = async (section, data) => {
-        setPersonalizationsState(prev => {
-            const next = {
-                ...prev,
-                [section]: { ...(prev?.[section] || {}), ...data }
-            };
-            localStorage.setItem('personalizations', JSON.stringify(next));
-            applyDynamicStyles(next);
-            syncWithBackend(section, { ...(prev?.[section] || {}), ...data });
-            return next;
-        });
+        const next = {
+            ...personalizations,
+            [section]: { ...(personalizations?.[section] || {}), ...data }
+        };
+
+        // Update state
+        setPersonalizationsState(next);
+
+        // Side effects
+        localStorage.setItem('personalizations', JSON.stringify(next));
+        applyDynamicStyles(next);
+        syncWithBackend(section, next[section]);
     };
 
     const syncWithBackend = async (section, fullSectionData) => {
@@ -179,10 +182,17 @@ export const PersonalizationProvider = ({ children }) => {
                     { personalizations: { [section]: fullSectionData } },
                     { headers: { 'Authorization': `Bearer ${user.token}` } }
                 );
+                // Only show success for things like theme/language if it's explicitly helpful
             }
         } catch (error) {
-            console.error('Failed to sync personalization', error);
-            toast.error('Failed to sync settings');
+            console.warn('Failed to sync personalization to cloud', error);
+            // Non-intrusive notification: only show error if it's NOT a 500 (demo/offline)
+            if (error.response?.status !== 500 && error.response?.status !== 401) {
+                toast.error('Could not sync with cloud');
+            } else {
+                // Silently fallback or show a mini "Saved Locally" if it's a known backend issue
+                // toast.success('Saved locally', { id: 'local-sync' }); 
+            }
         }
     };
 

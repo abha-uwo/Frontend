@@ -5,8 +5,10 @@ import { Plus, CheckCircle, Clock, Calendar as CalendarIcon, AlertTriangle, Tras
 import { useRecoilState } from 'recoil';
 import { toggleState } from '../../userStore/userData';
 import toast from 'react-hot-toast';
+import { useLanguage } from '../../context/LanguageContext';
 
 const Dashboard = () => {
+    const { t } = useLanguage();
     const [tasks, setTasks] = useState([]);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingTask, setEditingTask] = useState(null);
@@ -178,18 +180,18 @@ const Dashboard = () => {
                                 className="lg:hidden p-1.5 rounded-lg hover:bg-surface text-subtext transition-colors border border-border/50"
                                 title="Toggle Sidebar"
                             >
-                                <MenuIcon className="w-5 h-5 text-primary" />
+                                <MenuIcon className="w-6 h-6 text-primary" />
                             </button>
-                            AI Personal Assistant
+                            {t('aiPersonalAssistant')}
                         </h1>
-                        <p className="text-gray-500 dark:text-gray-400 text-xs md:text-sm">Manage your daily routine & smart reminders</p>
+                        <p className="text-gray-500 dark:text-gray-400 text-xs md:text-sm">{t('manageDailyRoutine')}</p>
                     </div>
                     <button
                         onClick={() => { setEditingTask(null); setIsModalOpen(true); }}
                         className="w-full md:w-auto flex items-center justify-center gap-2 px-5 py-2.5 bg-primary hover:bg-primary/90 text-white rounded-xl font-medium shadow-lg shadow-primary/20 transition-all hover:-translate-y-1 active:scale-95 text-sm"
                     >
                         <Plus className="w-4 h-4" />
-                        New Task
+                        {t('newTask')}
                     </button>
                 </div>
 
@@ -199,7 +201,7 @@ const Dashboard = () => {
                         <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
                             <CalendarIcon className="w-14 h-14 md:w-16 md:h-16 text-blue-500" />
                         </div>
-                        <p className="text-gray-500 text-sm font-medium">Today's Tasks</p>
+                        <p className="text-gray-500 text-sm font-medium">{t('todayTasks')}</p>
                         <h3 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mt-2">
                             {tasks.filter(t => new Date(t.datetime).toDateString() === new Date().toDateString()).length}
                         </h3>
@@ -209,7 +211,7 @@ const Dashboard = () => {
                         <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
                             <Clock className="w-12 h-12 md:w-14 md:h-14 text-orange-500" />
                         </div>
-                        <p className="text-gray-500 text-xs md:text-sm font-medium">Pending</p>
+                        <p className="text-gray-500 text-xs md:text-sm font-medium">{t('pending')}</p>
                         <h3 className="text-2xl md:text-3xl font-bold text-orange-500 mt-1">
                             {tasks.filter(t => t.status === 'pending' || t.status === 'missed').length}
                         </h3>
@@ -219,7 +221,7 @@ const Dashboard = () => {
                         <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
                             <CheckCircle className="w-12 h-12 md:w-14 md:h-14 text-green-500" />
                         </div>
-                        <p className="text-gray-500 text-xs md:text-sm font-medium">Completed</p>
+                        <p className="text-gray-500 text-xs md:text-sm font-medium">{t('completed')}</p>
                         <h3 className="text-2xl md:text-3xl font-bold text-green-500 mt-1">
                             {tasks.filter(t => t.status === 'completed').length}
                         </h3>
@@ -229,7 +231,7 @@ const Dashboard = () => {
                         <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
                             <Settings2 className="w-12 h-12 md:w-14 md:h-14 text-primary" />
                         </div>
-                        <p className="text-gray-500 text-xs md:text-sm font-medium">Total Routines</p>
+                        <p className="text-gray-500 text-xs md:text-sm font-medium">{t('totalRoutines')}</p>
                         <h3 className="text-2xl md:text-3xl font-bold text-primary mt-1">
                             {tasks.length}
                         </h3>
@@ -247,7 +249,7 @@ const Dashboard = () => {
                                 : 'bg-white dark:bg-[#1A1A1A] text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-white/5'
                                 }`}
                         >
-                            {f.charAt(0).toUpperCase() + f.slice(1)}
+                            {t(f) || f.charAt(0).toUpperCase() + f.slice(1)}
                         </button>
                     ))}
                 </div>
@@ -259,8 +261,8 @@ const Dashboard = () => {
                     ) : filteredTasks.length === 0 ? (
                         <div className="text-center py-20 bg-white dark:bg-[#1A1A1A] rounded-3xl border border-dashed border-gray-200 dark:border-gray-800">
                             <CalendarIcon className="w-12 h-12 text-gray-300 dark:text-gray-700 mx-auto mb-4" />
-                            <h3 className="text-lg font-medium text-gray-900 dark:text-gray-200">No tasks found</h3>
-                            <p className="text-gray-500 text-sm">Add a new task to get started.</p>
+                            <h3 className="text-lg font-medium text-gray-900 dark:text-gray-200">{t('noTasksFound')}</h3>
+                            <p className="text-gray-500 text-sm">{t('addFirstTask')}</p>
                         </div>
                     ) : (
                         Object.entries(filteredTasks.reduce((acc, task) => {

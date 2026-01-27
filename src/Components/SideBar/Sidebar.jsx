@@ -183,8 +183,8 @@ const Sidebar = ({ isOpen, onClose }) => {
 
   if (notifiyTgl.notify) {
     setTimeout(() => {
-      setNotifyTgl({ notify: false })
-    }, 2000)
+      setNotifyTgl(prev => ({ ...prev, notify: false }));
+    }, 2000);
   }
   // Dynamic class for active nav items
   const navItemClass = ({ isActive }) =>
@@ -221,7 +221,7 @@ const Sidebar = ({ isOpen, onClose }) => {
       {/* Sidebar */}
       <div
         className={`
-          fixed inset-y-0 left-0 z-[100] w-full sm:w-72 lg:w-64 bg-secondary border-r border-border 
+          fixed inset-y-0 left-0 z-[100] w-[280px] sm:w-72 lg:w-64 bg-secondary border-r border-border 
           flex flex-col transition-transform duration-300 ease-in-out 
           lg:relative lg:translate-x-0 shadow-2xl lg:shadow-none
           ${isOpen ? 'translate-x-0' : '-translate-x-full'}
@@ -264,14 +264,14 @@ const Sidebar = ({ isOpen, onClose }) => {
               onClick={handleNewChat}
               className="w-full bg-primary hover:opacity-90 text-white font-semibold py-2.5 px-3 rounded-xl flex items-center justify-center gap-2 transition-colors shadow-lg shadow-primary/20 text-sm"
             >
-              <Plus className="w-4 h-4" /> New Chat
+              <Plus className="w-4 h-4" /> {t('newChat')}
             </button>
           </div>
 
           {/* Chat Sessions List */}
           <div className="flex-1 overflow-y-auto px-2 space-y-1">
             <h3 className="px-4 py-2 text-xs font-semibold text-subtext uppercase tracking-wider">
-              HISTORY
+              {t('history')}
             </h3>
 
             {sessions
@@ -306,7 +306,7 @@ const Sidebar = ({ isOpen, onClose }) => {
               ))}
 
             {sessions.length === 0 && (
-              <div className="px-4 text-xs text-subtext italic">No recent chats</div>
+              <div className="px-4 text-xs text-subtext italic">{t('noRecentChats') || 'No recent chats'}</div>
             )}
           </div>
         </div>
@@ -384,7 +384,7 @@ const Sidebar = ({ isOpen, onClose }) => {
                 <User className="w-4 h-4" />
               </div>
               <div className="font-bold text-maintext text-xs group-hover:text-primary transition-colors">
-                Log In
+                {t('logIn')}
               </div>
             </div>
           )}
@@ -432,13 +432,13 @@ const Sidebar = ({ isOpen, onClose }) => {
                     onClick={() => setActiveTab('faq')}
                     className={`text-lg font-bold px-4 py-2 rounded-lg transition-colors ${activeTab === 'faq' ? 'bg-primary/10 text-primary' : 'text-subtext hover:text-maintext'}`}
                   >
-                    FAQ
+                    {t('faq') || 'FAQ'}
                   </button>
                   <button
                     onClick={() => setActiveTab('help')}
                     className={`text-lg font-bold px-4 py-2 rounded-lg transition-colors ${activeTab === 'help' ? 'bg-primary/10 text-primary' : 'text-subtext hover:text-maintext'}`}
                   >
-                    Help
+                    {t('help') || 'Help'}
                   </button>
                 </div>
                 <button
@@ -482,7 +482,7 @@ const Sidebar = ({ isOpen, onClose }) => {
 
                     {/* Issue Type Dropdown */}
                     <div>
-                      <label className="block text-sm font-bold text-maintext mb-2">Select Issue Category</label>
+                      <label className="block text-sm font-bold text-maintext mb-2">{t('selectIssueCategory')}</label>
                       <div className="relative">
                         <select
                           value={issueType}
@@ -499,10 +499,10 @@ const Sidebar = ({ isOpen, onClose }) => {
 
                     {/* Issue Description */}
                     <div>
-                      <label className="block text-sm font-bold text-maintext mb-2">Describe your issue</label>
+                      <label className="block text-sm font-bold text-maintext mb-2">{t('describeYourIssue')}</label>
                       <textarea
                         className="w-full p-4 rounded-xl bg-secondary border border-border focus:border-primary outline-none resize-none text-maintext min-h-[150px]"
-                        placeholder="Please provide details about the problem you are facing..."
+                        placeholder={t('issuePlaceholder')}
                         value={issueText}
                         onChange={(e) => setIssueText(e.target.value)}
                       />
@@ -518,7 +518,7 @@ const Sidebar = ({ isOpen, onClose }) => {
                       ) : (
                         <>
                           <MessageSquare className="w-5 h-5" />
-                          Send to Support
+                          <span>{t('submitSupport')}</span>
                         </>
                       )}
                     </button>

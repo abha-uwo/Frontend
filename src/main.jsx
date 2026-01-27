@@ -13,13 +13,13 @@ createRoot(document.getElementById('root')).render(
   <StrictMode>
     <ErrorBoundary>
       <ToastProvider>
-        <ThemeProvider>
-          <LanguageProvider>
-            <PersonalizationProvider>
+        <PersonalizationProvider>
+          <ThemeProvider>
+            <LanguageProvider>
               <App />
-            </PersonalizationProvider>
-          </LanguageProvider>
-        </ThemeProvider>
+            </LanguageProvider>
+          </ThemeProvider>
+        </PersonalizationProvider>
       </ToastProvider>
     </ErrorBoundary>
   </StrictMode>,
