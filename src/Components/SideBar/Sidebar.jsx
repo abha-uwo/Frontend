@@ -80,7 +80,7 @@ const Sidebar = ({ isOpen, onClose }) => {
 
     try {
       await axios.post(apis.support, {
-        email: user?.email || "guest@ai-mall.in",
+        email: user?.email || "guest@uwo24.com",
         issueType,
         message: issueText,
         userId: user?.id || null
@@ -536,7 +536,7 @@ const Sidebar = ({ isOpen, onClose }) => {
                     )}
 
                     <p className="text-xs text-center text-subtext">
-                      Or email us directly at <a href="mailto:support@a-series.in" className="text-primary font-medium hover:underline">support@a-series.in</a>
+                      Or email us directly at <a href="mailto:admin@uwo24.com" className="text-primary font-medium hover:underline">admin@uwo24.com</a>
                     </p>
                   </div>
                 )}

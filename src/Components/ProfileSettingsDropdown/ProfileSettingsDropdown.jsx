@@ -7,8 +7,9 @@ import {
     X, ChevronDown, Play, Globe,
     LogOut, Monitor, Mic, Check,
     ChevronLeft, Trash2, ShieldCheck, Mail, Volume2, Plus,
-    Palette, Type, RefreshCcw, Languages
+    Palette, Type, RefreshCcw, Languages, Crown, History, Calendar, CreditCard, Download
 } from 'lucide-react';
+import { jsPDF } from "jspdf";
 import { usePersonalization } from '../../context/PersonalizationContext';
 import { useTheme } from '../../context/ThemeContext';
 import { useLanguage } from '../../context/LanguageContext';
@@ -18,6 +19,8 @@ import toast from 'react-hot-toast';
 import axios from 'axios';
 import { apis } from '../../types';
 import CustomSelect from '../CustomSelect/CustomSelect';
+import PricingModal from '../Pricing/PricingModal';
+import usePayment from '../../hooks/usePayment';
 
 const ProfileSettingsDropdown = ({ onClose, onLogout }) => {
     const [currentUserData, setUserRecoil] = useRecoilState(userData);
@@ -38,10 +41,94 @@ const ProfileSettingsDropdown = ({ onClose, onLogout }) => {
     const [isPlayingVoice, setIsPlayingVoice] = useState(false);
     const [accounts, setAccounts] = useState(getAccounts());
     const [nicknameInput, setNicknameInput] = useState('');
+    const [showPricingModal, setShowPricingModal] = useState(false);
+    const { handlePayment, loading: paymentLoading } = usePayment();
+    const [transactions, setTransactions] = useState([]);
+    const [loadingHistory, setLoadingHistory] = useState(false);
+    const [showHistory, setShowHistory] = useState(false);
 
     useEffect(() => {
         setNicknameInput(personalizations.account?.nickname || '');
     }, [personalizations.account?.nickname]);
+
+    useEffect(() => {
+        if (activeTab === 'account' && user?.token) {
+            fetchTransactions();
+        }
+    }, [activeTab]);
+
+    const generateInvoice = (tx) => {
+        const doc = new jsPDF();
+
+        // Header
+        doc.setFontSize(22);
+        doc.setTextColor(63, 81, 181); // Primary Color
+        doc.text("INVOICE", 105, 20, { align: "center" });
+
+        // Brand / Company Info
+        doc.setFontSize(12);
+        doc.setTextColor(0, 0, 0);
+        doc.text("AISA AI Platforms", 20, 40);
+        doc.setFontSize(10);
+        doc.text("admin@uwo24.com", 20, 45);
+
+        // Invoice Details
+        doc.text(`Invoice No: ${tx._id.substring(0, 8).toUpperCase()}`, 140, 40);
+        doc.text(`Date: ${new Date(tx.createdAt).toLocaleDateString()}`, 140, 45);
+        doc.text(`Order ID: ${tx.orderId || 'N/A'}`, 140, 50);
+
+        // Divider
+        doc.setLineWidth(0.5);
+        doc.line(20, 55, 190, 55);
+
+        // Bill To
+        doc.setFontSize(12);
+        doc.text("Bill To:", 20, 70);
+        doc.setFontSize(10);
+        doc.text(user.name || "Customer", 20, 75);
+        doc.text(user.email || "", 20, 80);
+
+        // Table Header
+        doc.setFillColor(245, 245, 245);
+        doc.rect(20, 90, 170, 10, 'F');
+        doc.setFont("helvetica", "bold");
+        doc.text("Description", 25, 96);
+        doc.text("Amount", 170, 96, { align: "right" });
+
+        // Table Content
+        doc.setFont("helvetica", "normal");
+        doc.text(`${tx.plan || 'Subscription'} Plan`, 25, 110);
+        doc.text(`INR ${tx.amount}`, 170, 110, { align: "right" }); // Amount is already formatting in history? No, history divides by 100 usually if paise
+
+        // Divider
+        doc.line(20, 120, 190, 120);
+
+        // Total
+        doc.setFont("helvetica", "bold");
+        doc.text("Total", 140, 130);
+        doc.text(`INR ${tx.amount}`, 170, 130, { align: "right" });
+
+        // Footer
+        doc.setFontSize(10);
+        doc.setTextColor(150);
+        doc.text("Thank you for your business!", 105, 160, { align: "center" });
+
+        doc.save(`Invoice_${tx.orderId || tx._id}.pdf`);
+    };
+
+    const fetchTransactions = async () => {
+        try {
+            setLoadingHistory(true);
+            const res = await axios.get(apis.getPaymentHistory, {
+                headers: { 'Authorization': `Bearer ${user.token}` }
+            });
+            setTransactions(res.data.filter(tx => tx.amount > 0));
+        } catch (error) {
+            console.error("Failed to fetch transactions", error);
+        } finally {
+            setLoadingHistory(false);
+        }
+    };
 
     const handleAccountLogout = (email) => {
         removeAccount(email);
@@ -442,7 +529,94 @@ const ProfileSettingsDropdown = ({ onClose, onLogout }) => {
                                     <Mail className="w-4 h-4 text-gray-400 dark:text-gray-500" /> {user?.email || 'user@example.com'}
                                 </span>
                             </div>
+
+                            <div className="flex flex-col gap-2 pt-2">
+                                <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest">Current Plan</label>
+                                <div className="flex items-center justify-between p-4 bg-gradient-to-r from-primary/5 to-primary/10 rounded-xl border border-primary/20">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center">
+                                            <Crown className="w-5 h-5 text-primary" />
+                                        </div>
+                                        <div>
+                                            <p className="text-base font-bold text-gray-900 dark:text-white capitalize">
+                                                {user?.plan || 'Basic'} Plan
+                                            </p>
+                                            <p className="text-xs text-gray-500 dark:text-gray-400">
+                                                {user?.plan === 'King' ? 'Unlimited Access' : user?.plan === 'Pro' ? 'Advanced Features' : 'Standard Access'}
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <button
+                                        onClick={() => setShowPricingModal(true)}
+                                        className="px-4 py-2 bg-primary hover:bg-primary/90 text-white text-xs font-bold rounded-lg transition-all shadow-sm shadow-primary/20"
+                                    >
+                                        Upgrade
+                                    </button>
+                                </div>
+                            </div>
                         </div>
+
+                        {/* Transaction History Section */}
+                        <div className="pt-6 border-t border-gray-100 dark:border-white/5">
+                            <div className="flex items-center justify-between mb-4">
+                                <h4 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest flex items-center gap-2">
+                                    <History className="w-4 h-4" /> Transaction History
+                                </h4>
+                                <button
+                                    onClick={() => setShowHistory(!showHistory)}
+                                    className="text-xs font-semibold text-primary hover:text-primary/80 transition-colors"
+                                >
+                                    {showHistory ? 'Hide History' : 'View History'}
+                                </button>
+                            </div>
+
+                            {showHistory && (
+                                <div className="space-y-3 animate-in fade-in slide-in-from-top-2 duration-300">
+                                    {
+                                        loadingHistory ? (
+                                            <div className="text-center py-8 text-sm text-gray-400">Loading history...</div>
+                                        ) : transactions.length > 0 ? (
+                                            <div className="space-y-3">
+                                                {transactions.map((tx) => (
+                                                    <div key={tx._id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-zinc-800/50 rounded-xl border border-gray-100 dark:border-white/5">
+                                                        <div className="flex items-center gap-3">
+                                                            <div className={`w-8 h-8 rounded-full flex items-center justify-center ${tx.status === 'success' || tx.status === 'Success' ? 'bg-green-100 text-green-600 dark:bg-green-900/20 dark:text-green-400' : 'bg-red-100 text-red-600'}`}>
+                                                                <CreditCard className="w-4 h-4" />
+                                                            </div>
+                                                            <div>
+                                                                <p className="text-sm font-bold text-gray-900 dark:text-white capitalize">{tx.plan || 'Subscription'}</p>
+                                                                <p className="text-[11px] text-gray-500 dark:text-gray-400 flex items-center gap-1">
+                                                                    <Calendar className="w-3 h-3" />
+                                                                    {new Date(tx.createdAt).toLocaleDateString()}
+                                                                </p>
+                                                            </div>
+                                                        </div>
+                                                        <div className="text-right flex flex-col items-end gap-1">
+                                                            <p className="text-sm font-bold text-gray-900 dark:text-white">₹{tx.amount}</p>
+                                                            <span className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded ${tx.status === 'success' || tx.status === 'Success' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-100 text-red-700'}`}>
+                                                                {tx.status}
+                                                            </span>
+                                                            <button
+                                                                onClick={() => generateInvoice(tx)}
+                                                                className="mt-1 flex items-center gap-1 text-[10px] font-medium text-gray-500 hover:text-primary transition-colors"
+                                                                title="Download Invoice"
+                                                            >
+                                                                <Download className="w-3 h-3" /> Invoice
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <div className="text-center py-8 bg-gray-50 dark:bg-zinc-800/30 rounded-xl border border-dashed border-gray-200 dark:border-white/10">
+                                                <p className="text-sm text-gray-500 dark:text-gray-400">No transaction history found.</p>
+                                            </div>
+                                        )
+                                    }
+                                </div>
+                            )}
+                        </div >
+
                         <div className="pt-6 border-t border-gray-100 dark:border-white/5 flex flex-col gap-3">
                             <button onClick={() => { onLogout(); onClose(); }} className="text-sm font-semibold text-primary hover:text-primary/80 transition-colors text-left flex items-center gap-2">
                                 <Plus className="w-4 h-4" /> Add or switch account
@@ -454,7 +628,7 @@ const ProfileSettingsDropdown = ({ onClose, onLogout }) => {
                                 <Trash2 className="w-4 h-4" /> Permanent Delete Account
                             </button>
                         </div>
-                    </div>
+                    </div >
                 );
             default:
                 return null;
@@ -463,91 +637,108 @@ const ProfileSettingsDropdown = ({ onClose, onLogout }) => {
 
     return createPortal(
         <AnimatePresence>
-            <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 dark:bg-black/60 backdrop-blur-[2px] p-0 sm:p-4" onClick={onClose}>
-                <motion.div
-                    initial={{ opacity: 0, y: 20, scale: 0.98 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.98 }}
-                    transition={{ duration: 0.2, ease: "easeOut" }}
-                    className="w-full sm:max-w-[850px] h-full sm:h-[600px] bg-white dark:bg-[#1f1f1f] sm:rounded-2xl flex flex-col sm:flex-row shadow-2xl font-sans"
-                    onClick={(e) => e.stopPropagation()}
-                >
-                    {/* Sidebar / List View */}
-                    <div className={`
+            {!showPricingModal && (
+                <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 dark:bg-black/60 backdrop-blur-[2px] p-0 sm:p-4" onClick={onClose}>
+                    <motion.div
+                        initial={{ opacity: 0, y: 20, scale: 0.98 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.98 }}
+                        transition={{ duration: 0.2, ease: "easeOut" }}
+                        className="w-full sm:max-w-[850px] h-full sm:h-[600px] bg-white dark:bg-[#1f1f1f] sm:rounded-2xl flex flex-col sm:flex-row shadow-2xl font-sans"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        {/* Sidebar / List View */}
+                        <div className={`
                         w-full sm:w-[240px] bg-[#F9F9F9] dark:bg-[#171717] flex flex-col shrink-0 border-r border-gray-100 dark:border-white/5
                         ${view === 'detail' ? 'hidden sm:flex' : 'flex'}
                     `}>
-                        <div className="p-4 sm:p-5 flex items-center justify-between sm:justify-start">
-                            <button onClick={onClose} className="p-1 text-gray-500 hover:text-gray-900 dark:hover:text-white transition-colors sm:hidden">
-                                <X className="w-6 h-6" />
-                            </button>
-                            <h2 className="text-lg font-bold text-gray-900 dark:text-white sm:ml-2">Settings</h2>
-                            <button onClick={onClose} className="hidden sm:block ml-auto p-1 text-gray-500 hover:text-gray-900 dark:hover:text-white transition-colors">
-                                <X className="w-5 h-5" />
-                            </button>
-                        </div>
-
-                        <nav className="flex-1 overflow-y-auto px-2 pb-4">
-                            {tabs.map((tab) => (
-                                <button
-                                    key={tab.id}
-                                    onClick={() => handleTabClick(tab.id)}
-                                    className={`w-full flex items-center justify-between sm:justify-start gap-3 px-4 py-3 sm:py-2.5 rounded-xl text-[15px] sm:text-sm text-left transition-colors font-medium ${activeTab === tab.id
-                                        ? 'bg-white dark:bg-[#2F2F2F] text-gray-900 dark:text-white shadow-sm'
-                                        : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-zinc-800 hover:text-gray-900 dark:hover:text-gray-200'
-                                        }`}
-                                >
-                                    <div className="flex items-center gap-3">
-                                        <tab.icon className={`w-5 h-5 sm:w-4 sm:h-4 ${activeTab === tab.id ? 'text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-500'}`} />
-                                        {tab.label}
-                                    </div>
-                                    <ChevronDown className="w-4 h-4 text-gray-300 dark:text-gray-600 sm:hidden -rotate-90" />
+                            <div className="p-4 sm:p-5 flex items-center justify-between sm:justify-start">
+                                <button onClick={onClose} className="p-1 text-gray-500 hover:text-gray-900 dark:hover:text-white transition-colors sm:hidden">
+                                    <X className="w-6 h-6" />
                                 </button>
-                            ))}
-                        </nav>
+                                <h2 className="text-lg font-bold text-gray-900 dark:text-white sm:ml-2">Settings</h2>
+                                <button onClick={onClose} className="hidden sm:block ml-auto p-1 text-gray-500 hover:text-gray-900 dark:hover:text-white transition-colors">
+                                    <X className="w-5 h-5" />
+                                </button>
+                            </div>
 
-                        <div className="p-4 border-t border-gray-100 dark:border-white/5 bg-[#F9F9F9] dark:bg-[#171717]">
-                            <button
-                                onClick={onLogout}
-                                className="w-full flex items-center gap-3 px-3 py-3 rounded-xl text-sm text-left text-red-600 dark:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
-                            >
-                                <LogOut className="w-5 h-5 sm:w-4 sm:h-4" />
-                                Log out
-                            </button>
+                            <nav className="flex-1 overflow-y-auto px-2 pb-4">
+                                {tabs.map((tab) => (
+                                    <button
+                                        key={tab.id}
+                                        onClick={() => handleTabClick(tab.id)}
+                                        className={`w-full flex items-center justify-between sm:justify-start gap-3 px-4 py-3 sm:py-2.5 rounded-xl text-[15px] sm:text-sm text-left transition-colors font-medium ${activeTab === tab.id
+                                            ? 'bg-white dark:bg-[#2F2F2F] text-gray-900 dark:text-white shadow-sm'
+                                            : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-zinc-800 hover:text-gray-900 dark:hover:text-gray-200'
+                                            }`}
+                                    >
+                                        <div className="flex items-center gap-3">
+                                            <tab.icon className={`w-5 h-5 sm:w-4 sm:h-4 ${activeTab === tab.id ? 'text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-500'}`} />
+                                            {tab.label}
+                                        </div>
+                                        <ChevronDown className="w-4 h-4 text-gray-300 dark:text-gray-600 sm:hidden -rotate-90" />
+                                    </button>
+                                ))}
+                            </nav>
+
+                            <div className="p-4 border-t border-gray-100 dark:border-white/5 bg-[#F9F9F9] dark:bg-[#171717]">
+                                <button
+                                    onClick={onLogout}
+                                    className="w-full flex items-center gap-3 px-3 py-3 rounded-xl text-sm text-left text-red-600 dark:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
+                                >
+                                    <LogOut className="w-5 h-5 sm:w-4 sm:h-4" />
+                                    Log out
+                                </button>
+                            </div>
                         </div>
-                    </div>
 
-                    {/* Content Area / Detail View */}
-                    <div className={`
+                        {/* Content Area / Detail View */}
+                        <div className={`
                         flex-1 flex flex-col min-w-0 bg-white dark:bg-[#1f1f1f]
                         ${view === 'sidebar' ? 'hidden sm:flex' : 'flex'}
                     `}>
-                        {/* Mobile Header */}
-                        <div className="sm:hidden flex items-center justify-between p-4 border-b border-gray-50 dark:border-white/5">
-                            <button onClick={() => setView('sidebar')} className="p-1 text-gray-900 dark:text-white">
-                                <ChevronLeft className="w-6 h-6" />
-                            </button>
-                            <h2 className="text-base font-bold text-gray-900 dark:text-white">
-                                {tabs.find(t => t.id === activeTab)?.label}
-                            </h2>
-                            <div className="w-6" /> {/* Balance */}
-                        </div>
+                            {/* Mobile Header */}
+                            <div className="sm:hidden flex items-center justify-between p-4 border-b border-gray-50 dark:border-white/5">
+                                <button onClick={() => setView('sidebar')} className="p-1 text-gray-900 dark:text-white">
+                                    <ChevronLeft className="w-6 h-6" />
+                                </button>
+                                <h2 className="text-base font-bold text-gray-900 dark:text-white">
+                                    {tabs.find(t => t.id === activeTab)?.label}
+                                </h2>
+                                <div className="w-6" /> {/* Balance */}
+                            </div>
 
-                        {/* Desktop Header */}
-                        <div className="hidden sm:block px-8 py-6 pb-2">
-                            <h2 className="text-xl font-bold text-gray-900 dark:text-white">
-                                {tabs.find(t => t.id === activeTab)?.label}
-                            </h2>
-                        </div>
+                            {/* Desktop Header */}
+                            <div className="hidden sm:block px-8 py-6 pb-2">
+                                <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+                                    {tabs.find(t => t.id === activeTab)?.label}
+                                </h2>
+                            </div>
 
-                        <div className="flex-1 overflow-y-auto px-6 sm:px-8 pb-8 custom-scrollbar-light">
-                            <div className="max-w-2xl mx-auto py-2">
-                                {renderContent()}
+                            <div className="flex-1 overflow-y-auto px-6 sm:px-8 pb-8 custom-scrollbar-light">
+                                <div className="max-w-2xl mx-auto py-2">
+                                    {renderContent()}
+                                </div>
                             </div>
                         </div>
-                    </div>
-                </motion.div>
-            </div>
+                    </motion.div>
+                </div>
+            )}
+            {showPricingModal && (
+                <PricingModal
+                    currentPlan={user?.plan || 'Basic'}
+                    onClose={() => setShowPricingModal(false)}
+                    onUpgrade={async (plan) => {
+                        await handlePayment(plan, user, (updatedUser) => {
+                            // Update local state deeply to reflect plan change immediately
+                            setUserRecoil(prev => ({ ...prev, user: { ...prev.user, plan: updatedUser.plan } }));
+                            setUserData({ ...getUserData(), plan: updatedUser.plan });
+                            setShowPricingModal(false);
+                            toast.success(`Welcome to ${plan.name} Plan!`);
+                        });
+                    }}
+                />
+            )}
         </AnimatePresence>,
         document.body
     );

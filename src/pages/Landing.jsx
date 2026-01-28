@@ -53,7 +53,7 @@ const Landing = () => {
         setSendStatus(null);
         try {
             await axios.post(apis.support, {
-                email: user?.email || "guest@ai-mall.in",
+                email: user?.email || "guest@uwo24.com",
                 issueType,
                 message: issueText,
                 userId: user?.id || null
@@ -505,7 +505,7 @@ const Landing = () => {
                                             </div>
                                         )}
                                         <p className="text-xs text-center text-gray-600 dark:text-gray-400">
-                                            Or email us directly at <a href="mailto:support@ai-mall.in" className="text-blue-600 dark:text-blue-400 font-medium hover:underline">support@ai-mall.in</a>
+                                            Or email us directly at <a href="mailto:admin@uwo24.com" className="text-blue-600 dark:text-blue-400 font-medium hover:underline">admin@uwo24.com</a>
                                         </p>
                                     </div>
                                 )}

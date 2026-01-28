@@ -517,7 +517,7 @@ const Chat = () => {
         setMessages([]);
       }
 
-      setShowHistory(false);
+      // setShowHistory(false);
     };
     initChat();
   }, [sessionId]);
@@ -546,7 +546,7 @@ const Chat = () => {
 
   const handleNewChat = async () => {
     navigate('/dashboard/chat/new');
-    setShowHistory(false);
+    // setShowHistory(false);
   };
 
   const { language: currentLang } = useLanguage();
